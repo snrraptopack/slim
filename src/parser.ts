@@ -463,7 +463,7 @@ export class Parser {
             // Check next token to determine if it's empty mapping or sequence
             const nextToken = this.tokens[this.pos + 1];
 
-            if (!nextToken || nextToken.type === 'DEDENT' || nextToken.type === 'EOF') {
+            if (nextToken && (nextToken.type === 'DEDENT' || nextToken.type === 'EOF')) {
                 // Empty block - default to empty mapping
                 const emptyNode: EmptyNode = {
                     kind: 'empty',

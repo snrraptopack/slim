@@ -474,3 +474,72 @@ describe('Streaming Stress Tests', () => {
         expect((final as any).items).toHaveLength(2);
     });
 });
+
+describe('Streaming Chunk Variations', () => {
+    it('should keep nested structure when tokens span chunks', () => {
+        const chunks = [
+            'tool',
+            '_call:\n',
+            '  name',
+            ': web_search\n',
+            '  parameters:\n',
+            '    query: AI news\n',
+            '    limit: 10\n',
+        ];
+
+        const stream = createStreamingParser();
+        const snapshots: unknown[] = [];
+
+        for (const chunk of chunks) {
+            stream.write(chunk);
+            snapshots.push(stream.peek());
+        }
+
+        expect(snapshots[0]).toEqual({});
+        expect(snapshots[1]).toEqual({});
+        expect(snapshots[2]).toEqual({ tool_call: {} });
+        expect(snapshots[3]).toEqual({ tool_call: { name: 'web_search' } });
+
+        const final = stream.end() as any;
+        expect(final.tool_call).toBeDefined();
+        expect(final.tool_call.name).toBe('web_search');
+        expect(final.tool_call.parameters).toEqual({ query: 'AI news', limit: 10 });
+    });
+
+    it('should match full parse across varying chunk sizes', () => {
+        const source = `workflow:\n  name: customer_support\n  agents:\n    - id: classifier\n      role: intent_classification\n    - id: responder\n      role: response_generation\ncontext:\n  locale: en-US\n  channel: chat\n`;
+        const expected = parseToJSON(source);
+        const chunkSizes = [1, 2, 4, 8, source.length];
+
+        for (const size of chunkSizes) {
+            const stream = createStreamingParser();
+            for (let i = 0; i < source.length; i += size) {
+                stream.write(source.slice(i, i + size));
+            }
+            const result = stream.end();
+            expect(result).toEqual(expected);
+        }
+    });
+
+    it('should stream large documents with irregular chunking', () => {
+        const sections = Array.from({ length: 20 }, (_, index) => `step${index + 1}:\n  action: task_${index + 1}\n  status: pending\n`);
+        const source = sections.join('');
+        const expected = parseToJSON(source) as Record<string, unknown>;
+        const chunkPattern = [3, 5, 7, 2, 11];
+
+        const stream = createStreamingParser();
+        let cursor = 0;
+        let patternIndex = 0;
+
+        while (cursor < source.length) {
+            const size = chunkPattern[patternIndex % chunkPattern.length];
+            stream.write(source.slice(cursor, cursor + size));
+            cursor += size;
+            patternIndex++;
+        }
+
+        const result = stream.end() as Record<string, unknown>;
+        expect(Object.keys(result)).toHaveLength(20);
+        expect(result).toEqual(expected);
+    });
+});

@@ -36,6 +36,7 @@ export class Tokenizer {
     private input: string = '';
     private state: TokenizerState;
     private options: Required<Pick<ParserOptions, 'indentSize' | 'allowTabs' | 'preserveComments'>>;
+    private finishing = false;
 
     constructor(options: ParserOptions = {}) {
         this.options = {
@@ -119,6 +120,14 @@ export class Tokenizer {
     /** Finalize tokenization (emit closing DEDENTs and EOF) */
     finalize(): Token[] {
         const tokens: Token[] = [];
+
+        // Flush any pending partial tokens now that no more input will arrive
+        this.finishing = true;
+        let token: Token | null;
+        while ((token = this.next()) !== null) {
+            tokens.push(token);
+        }
+        this.finishing = false;
 
         // Emit DEDENTs for all open blocks
         while (this.state.indentStack.length > 1) {
@@ -221,8 +230,10 @@ export class Tokenizer {
         return this.tokenizeKeyOrScalar();
     }
 
-    private tokenizeKeyOrScalar(): Token {
+    private tokenizeKeyOrScalar(): Token | null {
         const startCol = this.state.column;
+        const startPos = this.state.pos;
+        const startLine = this.state.line;
         let value = '';
 
         // Read until we hit a delimiter
@@ -244,6 +255,16 @@ export class Tokenizer {
 
             value += char;
             this.advance();
+        }
+
+        const reachedEOF = this.state.pos >= this.input.length;
+
+        if (reachedEOF && !this.finishing) {
+            // Incomplete token; rewind and wait for more input
+            this.state.pos = startPos;
+            this.state.column = startCol;
+            this.state.line = startLine;
+            return null;
         }
 
         value = value.trim();
