@@ -1,0 +1,41 @@
+{
+  "button": {
+    "children": [
+      {
+        "id": "icon_component",
+        "type": "Icon",
+        "name": "star",
+        "size": 24
+      },
+      {
+        "type": "Text",
+        "content": "Hello World",
+        "variant": "body"
+      },
+      {
+        "type": "Spacer",
+        "height": 16
+      },
+      {
+        "id": "footer_component",
+        "type": "Text",
+        "content": "Footer text",
+        "variant": "caption"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "icon_component",
+      "type": "Icon",
+      "name": "star",
+      "size": 24
+    },
+    {
+      "id": "footer_component",
+      "type": "Text",
+      "content": "Footer text",
+      "variant": "caption"
+    }
+  ]
+}

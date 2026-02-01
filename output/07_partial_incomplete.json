@@ -13,8 +13,7 @@
       },
       {
         "id": "feature_2",
-        "name": "Dark Mode",
-        "enabled": {}
+        "name": "Dark Mode"
       }
     ]
   }

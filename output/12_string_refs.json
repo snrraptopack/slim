@@ -1,0 +1,108 @@
+{
+  "styles": [
+    {
+      "id": "btn_primary",
+      "backgroundColor": "#007AFF",
+      "color": "white",
+      "padding": 12
+    },
+    {
+      "id": "btn_secondary",
+      "backgroundColor": "transparent",
+      "color": "#007AFF",
+      "border": "1px solid"
+    }
+  ],
+  "components": [
+    {
+      "id": "login_button",
+      "type": "Button",
+      "label": "Sign In",
+      "style": {
+        "id": "btn_primary",
+        "backgroundColor": "#007AFF",
+        "color": "white",
+        "padding": 12
+      }
+    },
+    {
+      "id": "signup_button",
+      "type": "Button",
+      "label": "Create Account",
+      "style": {
+        "id": "btn_secondary",
+        "backgroundColor": "transparent",
+        "color": "#007AFF",
+        "border": "1px solid"
+      }
+    },
+    {
+      "id": "divider",
+      "type": "Divider",
+      "thickness": 1
+    }
+  ],
+  "ui": {
+    "type": "Card",
+    "props": {
+      "title": "Welcome"
+    },
+    "children": [
+      {
+        "id": "login_button",
+        "type": "Button",
+        "label": "Sign In",
+        "style": {
+          "id": "btn_primary",
+          "backgroundColor": "#007AFF",
+          "color": "white",
+          "padding": 12
+        }
+      },
+      {
+        "id": "divider",
+        "type": "Divider",
+        "thickness": 1
+      },
+      {
+        "id": "signup_button",
+        "type": "Button",
+        "label": "Create Account",
+        "style": {
+          "id": "btn_secondary",
+          "backgroundColor": "transparent",
+          "color": "#007AFF",
+          "border": "1px solid"
+        }
+      }
+    ]
+  },
+  "mixed_children": [
+    {
+      "type": "Text",
+      "content": "Choose an option"
+    },
+    {
+      "id": "login_button",
+      "type": "Button",
+      "label": "Sign In",
+      "style": {
+        "id": "btn_primary",
+        "backgroundColor": "#007AFF",
+        "color": "white",
+        "padding": 12
+      }
+    },
+    {
+      "id": "signup_button",
+      "type": "Button",
+      "label": "Create Account",
+      "style": {
+        "id": "btn_secondary",
+        "backgroundColor": "transparent",
+        "color": "#007AFF",
+        "border": "1px solid"
+      }
+    }
+  ]
+}
