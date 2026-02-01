@@ -28,21 +28,13 @@ Internal context:
 - Latest policy: refund allowed within 45 days if damage documented
 `;
 
-const yamlInstruction = `Output YAML:
-text: <empathetic response>
+const yamlInstruction = `YAML:
+text: <empathetic msg>
 tool_call:
   name: supportAction
-  parameters:
-    customerSummary: <30 words max>
-    action: <policy_lookup|order_refund>
-    actionParameters:
-      orderId: <string>
-      productId: <string>
-      refundWindow: <string>
-      notes: <string>
-    followUp: <short message>
+  parameters: {customerSummary: str, action: "policy_lookup"|"order_refund", actionParameters: {orderId, productId, refundWindow, notes}, followUp: str}
 
-No quotes unless needed. No fences.`;
+Be concise.`;
 
 async function runYamlDemo(): Promise<void> {
 	const ai = new GoogleGenAI({ apiKey: TempKey1 });
