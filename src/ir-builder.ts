@@ -92,11 +92,13 @@ export class IRBuilder {
         this.errors = [];
         this.currentPath = [];
 
-        const value = ast ? this.transformNode(ast) : null;
+        let value = ast ? this.transformNode(ast) : null;
 
-        // Resolve references
+        // Resolve references (inline resolved values)
         if (value !== null) {
             this.resolveRefs(value);
+            // Lift ref-only objects: replace {ref: resolved} with just resolved
+            value = this.liftRefOnlyObjects(value);
         }
 
         return {
@@ -178,7 +180,7 @@ export class IRBuilder {
         return node.hint === 'sequence' ? [] : {};
     }
 
-    /** Resolve $ref placeholders in the IR */
+    /** Resolve $ref placeholders in the IR by inlining resolved values */
     private resolveRefs(value: IRValue, visited: Set<object> = new Set()): void {
         if (value === null || typeof value !== 'object') {
             return;
@@ -197,8 +199,8 @@ export class IRBuilder {
                 if (this.isRef(item)) {
                     const resolved = this.registry.get(item.$ref);
                     if (resolved !== undefined) {
-                        // Keep as reference object, don't inline
-                        // This preserves identity semantics
+                        // Inline the resolved value (deep copy to avoid shared mutations)
+                        value[i] = this.deepCopy(resolved);
                     } else {
                         this.unresolvedRefs.push(item.$ref);
                     }
@@ -212,7 +214,10 @@ export class IRBuilder {
                 if (child === undefined) continue;
                 if (this.isRef(child)) {
                     const resolved = this.registry.get(child.$ref);
-                    if (resolved === undefined) {
+                    if (resolved !== undefined) {
+                        // Inline the resolved value (deep copy to avoid shared mutations)
+                        (value as IRObject)[key] = this.deepCopy(resolved);
+                    } else {
                         this.unresolvedRefs.push(child.$ref);
                     }
                 } else {
@@ -220,6 +225,58 @@ export class IRBuilder {
                 }
             }
         }
+    }
+
+    /** Deep copy a value to avoid shared mutations */
+    private deepCopy(value: IRValue): IRValue {
+        if (value === null || typeof value !== 'object') {
+            return value;
+        }
+        if (Array.isArray(value)) {
+            return value.map(item => this.deepCopy(item));
+        }
+        const copy: IRObject = {};
+        for (const key of Object.keys(value)) {
+            const child = (value as IRObject)[key];
+            if (child !== undefined) {
+                copy[key] = this.deepCopy(child);
+            }
+        }
+        return copy;
+    }
+
+    /** 
+     * Lift ref-only objects: when an object has only a "ref" key,
+     * replace the entire object with the ref's value.
+     * This turns {"ref": {...resolved...}} into just {...resolved...}
+     */
+    private liftRefOnlyObjects(value: IRValue): IRValue {
+        if (value === null || typeof value !== 'object') {
+            return value;
+        }
+
+        if (Array.isArray(value)) {
+            return value.map(item => this.liftRefOnlyObjects(item));
+        }
+
+        // Check if this is a ref-only object (has only "ref" key)
+        const keys = Object.keys(value);
+        if (keys.length === 1 && keys[0] === 'ref') {
+            const refValue = (value as IRObject)['ref'];
+            // Lift the ref value up, recursively processing it
+            // If ref is undefined (shouldn't happen), return null
+            return refValue !== undefined ? this.liftRefOnlyObjects(refValue) : null;
+        }
+
+        // Recursively process all children
+        const result: IRObject = {};
+        for (const key of keys) {
+            const child = (value as IRObject)[key];
+            if (child !== undefined) {
+                result[key] = this.liftRefOnlyObjects(child);
+            }
+        }
+        return result;
     }
 
     /** Check if value is a reference */

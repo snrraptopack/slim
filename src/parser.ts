@@ -279,12 +279,22 @@ export class Parser {
     private handleDash(token: Token, pos: Position): void {
         this.emit('block_start', { type: 'sequence_item' }, pos);
 
+        // Pop any frames with higher indent (e.g., mapping from previous sequence item)
+        while (this.state.stack.length > 1) {
+            const topFrame = this.currentFrame();
+            if (topFrame.indent <= token.indent) {
+                break;
+            }
+            this.popFrame(pos);
+        }
+
         const frame = this.currentFrame();
 
         // Peek at next token to determine if this is a scalar or mapping item
         const nextToken = this.tokens[this.pos + 1];
         const isScalarItem = nextToken && (nextToken.type === 'SCALAR' || nextToken.type === 'QUOTED');
         const isKeyItem = nextToken && nextToken.type === 'KEY';
+        const isDashItem = nextToken && nextToken.type === 'DASH';
 
         // If we have a pending key, this dash starts a sequence as its value
         if ((frame.type === 'mapping' || frame.type === 'root') && frame.pendingKey) {
@@ -307,7 +317,7 @@ export class Parser {
                 indent: token.indent,
             });
 
-            // Only create mapping frame if next token is KEY (not scalar)
+            // Only create mapping frame if next token is KEY (not scalar or dash)
             if (isKeyItem) {
                 // Create a new mapping for this sequence item
                 const itemMapping: MappingNode = {
@@ -322,6 +332,22 @@ export class Parser {
                 this.state.stack.push({
                     type: 'mapping',
                     node: itemMapping,
+                    indent: token.indent + 1,
+                });
+            } else if (isDashItem) {
+                // Nested sequence: create an inner sequence for this item
+                const innerSeq: SequenceNode = {
+                    kind: 'sequence',
+                    items: [],
+                    line: token.line,
+                    column: token.column,
+                };
+                seqNode.items.push(innerSeq);
+
+                // Push sequence frame for the inner sequence
+                this.state.stack.push({
+                    type: 'sequence',
+                    node: innerSeq,
                     indent: token.indent + 1,
                 });
             }
@@ -342,6 +368,22 @@ export class Parser {
                 this.state.stack.push({
                     type: 'mapping',
                     node: itemMapping,
+                    indent: token.indent + 1,
+                });
+            } else if (isDashItem) {
+                // Nested sequence: create an inner sequence for this item
+                const innerSeq: SequenceNode = {
+                    kind: 'sequence',
+                    items: [],
+                    line: token.line,
+                    column: token.column,
+                };
+                (frame.node as SequenceNode).items.push(innerSeq);
+
+                // Push sequence frame for the inner sequence
+                this.state.stack.push({
+                    type: 'sequence',
+                    node: innerSeq,
                     indent: token.indent + 1,
                 });
             }

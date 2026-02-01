@@ -1,0 +1,142 @@
+{
+  "styles": [
+    {
+      "id": "primary_button_style",
+      "backgroundColor": "#007AFF",
+      "color": "white",
+      "padding": 12,
+      "borderRadius": 8,
+      "fontWeight": "bold"
+    },
+    {
+      "id": "secondary_button_style",
+      "backgroundColor": "transparent",
+      "color": "#007AFF",
+      "padding": 12,
+      "borderRadius": 8,
+      "border": "1px solid #007AFF"
+    },
+    {
+      "id": "card_style",
+      "backgroundColor": "white",
+      "boxShadow": "0 2px 8px rgba(0,0,0,0.1)",
+      "borderRadius": 12,
+      "padding": 16
+    }
+  ],
+  "components": {
+    "header": {
+      "id": "app_header",
+      "type": "Header",
+      "props": {
+        "title": "My App",
+        "height": 64
+      }
+    },
+    "loginButton": {
+      "id": "login_btn",
+      "type": "Button",
+      "text": "Sign In",
+      "style": {
+        "ref": {
+          "id": "primary_button_style",
+          "backgroundColor": "#007AFF",
+          "color": "white",
+          "padding": 12,
+          "borderRadius": 8,
+          "fontWeight": "bold"
+        }
+      }
+    },
+    "signupButton": {
+      "id": "signup_btn",
+      "type": "Button",
+      "text": "Create Account",
+      "style": {
+        "ref": {
+          "id": "secondary_button_style",
+          "backgroundColor": "transparent",
+          "color": "#007AFF",
+          "padding": 12,
+          "borderRadius": 8,
+          "border": "1px solid #007AFF"
+        }
+      }
+    }
+  },
+  "page": {
+    "type": "Page",
+    "header": {
+      "ref": {
+        "id": "app_header",
+        "type": "Header",
+        "props": {
+          "title": "My App",
+          "height": 64
+        }
+      }
+    },
+    "content": {
+      "type": "Container",
+      "children": [
+        {
+          "type": "Card",
+          "style": {
+            "ref": {
+              "id": "card_style",
+              "backgroundColor": "white",
+              "boxShadow": "0 2px 8px rgba(0,0,0,0.1)",
+              "borderRadius": 12,
+              "padding": 16
+            }
+          },
+          "content": [
+            {
+              "type": "Text",
+              "value": "Welcome back!"
+            },
+            {
+              "ref": {
+                "id": "login_btn",
+                "type": "Button",
+                "text": "Sign In",
+                "style": {
+                  "ref": {
+                    "id": "primary_button_style",
+                    "backgroundColor": "#007AFF",
+                    "color": "white",
+                    "padding": 12,
+                    "borderRadius": 8,
+                    "fontWeight": "bold"
+                  }
+                }
+              }
+            },
+            {
+              "ref": {
+                "id": "signup_btn",
+                "type": "Button",
+                "text": "Create Account",
+                "style": {
+                  "ref": {
+                    "id": "secondary_button_style",
+                    "backgroundColor": "transparent",
+                    "color": "#007AFF",
+                    "padding": 12,
+                    "borderRadius": 8,
+                    "border": "1px solid #007AFF"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "brokenRef": {
+    "ref": {
+      "$ref": "nonexistent_component"
+    }
+  }
+}
