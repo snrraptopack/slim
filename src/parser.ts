@@ -138,7 +138,15 @@ export class Parser {
     private parseTokens(complete: boolean): ParseResult {
         // Initialize root frame if needed
         if (this.state.stack.length === 0) {
-            this.pushFrame('root', 0);
+            // Check if document starts with a dash (root-level sequence)
+            const firstNonCommentToken = this.tokens.find(t => t && t.type !== 'COMMENT' && t.type !== 'NEWLINE');
+            const isRootSequence = firstNonCommentToken?.type === 'DASH';
+            
+            if (isRootSequence) {
+                this.pushFrame('sequence', 0);
+            } else {
+                this.pushFrame('root', 0);
+            }
         }
 
         while (this.pos < this.tokens.length) {

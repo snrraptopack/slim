@@ -27,7 +27,8 @@ for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     console.log(`Chunk ${i + 1}: ${JSON.stringify(chunk)}`);
 
-    stream.write(chunk);
+    if (chunk)
+        stream.write(chunk);
 
     // peek() gives us the current partial result
     const partial = stream.peek();

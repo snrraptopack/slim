@@ -34,9 +34,14 @@ function coerceValue(value: string, quoted: boolean): string | number | boolean 
     // Trim for comparison
     const trimmed = value.trim();
 
-    // Null
-    if (trimmed === 'null' || trimmed === 'Null' || trimmed === 'NULL' || trimmed === '~' || trimmed === '') {
+    // Null - but NOT empty string (empty string should stay as empty string)
+    if (trimmed === 'null' || trimmed === 'Null' || trimmed === 'NULL' || trimmed === '~') {
         return null;
+    }
+
+    // Empty string (after trimming whitespace from untrimmed value)
+    if (trimmed === '' && value === '') {
+        return '';
     }
 
     // Boolean

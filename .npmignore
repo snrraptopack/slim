@@ -1,0 +1,29 @@
+# Test files
+tests/
+*.test.ts
+
+# Fixtures and output
+fixtures/
+output/
+
+# Demo files
+demo-app/
+demo-streaming.ts
+run-fixtures.ts
+test-with-gemini/
+generative-ui/
+
+# Documentation
+docs/
+PROMPT.txt
+
+# Build files
+*.peg
+tsconfig.json
+bun.lock
+
+# Development
+node_modules/
+.git/
+.gitignore
+index.ts

@@ -226,8 +226,94 @@ export class Tokenizer {
             return this.createToken('COLON', ':');
         }
 
+        // Pipe for multiline string (|)
+        if (char === '|') {
+            return this.tokenizeMultilineString();
+        }
+
         // Key or unquoted scalar
         return this.tokenizeKeyOrScalar();
+    }
+
+    private tokenizeMultilineString(): Token {
+        const startCol = this.state.column;
+        this.advance(); // consume |
+
+        // Skip to end of line
+        while (this.state.pos < this.input.length) {
+            const c = this.peekChar();
+            if (c === '\n' || c === '\r') break;
+            if (c !== ' ') break; // Ignore trailing spaces/modifiers after |
+            this.advance();
+        }
+
+        // Consume newline
+        if (this.peekChar() === '\r') this.advance();
+        if (this.peekChar() === '\n') {
+            this.advance();
+            this.state.line++;
+            this.state.column = 1;
+        }
+
+        // Determine the indent level of the multiline content
+        const baseIndent = this.measureIndent();
+        if (baseIndent === 0) {
+            // No indented content, return empty string
+            return {
+                type: 'SCALAR',
+                value: '',
+                line: this.state.line,
+                column: startCol,
+                indent: this.state.currentIndent,
+            };
+        }
+
+        const lines: string[] = [];
+
+        // Read all lines that are indented at least baseIndent
+        while (this.state.pos < this.input.length) {
+            const lineIndent = this.measureIndent();
+
+            // If line is less indented (and not empty), we're done
+            if (lineIndent < baseIndent && this.peekChar() !== '\n' && this.peekChar() !== '\r') {
+                break;
+            }
+
+            // Skip the base indent
+            for (let i = 0; i < baseIndent && this.peekChar() === ' '; i++) {
+                this.advance();
+            }
+
+            // Read the line content
+            let lineContent = '';
+            while (this.state.pos < this.input.length) {
+                const c = this.peekChar();
+                if (c === '\n' || c === '\r') break;
+                lineContent += c;
+                this.advance();
+            }
+
+            lines.push(lineContent);
+
+            // Consume newline
+            if (this.peekChar() === '\r') this.advance();
+            if (this.peekChar() === '\n') {
+                this.advance();
+                this.state.line++;
+                this.state.column = 1;
+                this.state.atLineStart = true;
+            } else {
+                break;
+            }
+        }
+
+        return {
+            type: 'SCALAR',
+            value: lines.join('\n'),
+            line: this.state.line,
+            column: startCol,
+            indent: this.state.currentIndent,
+        };
     }
 
     private tokenizeKeyOrScalar(): Token | null {
@@ -409,6 +495,25 @@ export class Tokenizer {
             }
         }
 
+        return spaces;
+    }
+
+    /** Measure indent at current position without consuming */
+    private measureIndent(): number {
+        let spaces = 0;
+        let offset = 0;
+        while (true) {
+            const char = this.input[this.state.pos + offset];
+            if (char === ' ') {
+                spaces++;
+                offset++;
+            } else if (char === '\t' && this.options.allowTabs) {
+                spaces += this.options.indentSize;
+                offset++;
+            } else {
+                break;
+            }
+        }
         return spaces;
     }
 

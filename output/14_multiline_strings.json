@@ -1,0 +1,26 @@
+{
+  "user": {
+    "name": "Alice Johnson",
+    "bio": "Software engineer with 10+ years of experience.\nSpecialized in distributed systems and cloud architecture.\nPassionate about open source and developer tools.",
+    "email": "alice@example.com"
+  },
+  "task": {
+    "title": "Deploy new feature",
+    "description": "Deploy the authentication system to production.\n\nSteps:\n1. Run database migrations\n2. Update environment variables\n3. Deploy to staging first\n4. Run smoke tests\n5. Deploy to production",
+    "assignee": "Bob"
+  },
+  "documentation": {
+    "api_endpoint": "/api/v1/users",
+    "request_body": {
+      "username": "string",
+      "email": "string",
+      "password": "string"
+    },
+    "response": {
+      "id": "uuid",
+      "username": "string",
+      "created_at": "timestamp"
+    },
+    "notes": "All requests must include authentication token.\nRate limit: 100 requests per minute."
+  }
+}

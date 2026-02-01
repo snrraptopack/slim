@@ -61,7 +61,7 @@ async function runTsSchemaDemo(): Promise<void> {
 	if (finalParsed.tool_call) {
 		const yamlMatch = aggregatedYaml.match(/(tool_call:[\s\S]*)/);
 		if (yamlMatch) {
-			console.log(yamlMatch[1].trim());
+			console.log(yamlMatch[1]?.trim());
 		}
 	}
 

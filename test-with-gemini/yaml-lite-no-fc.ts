@@ -93,7 +93,7 @@ async function runYamlLiteDemo(): Promise<void> {
 		// Show just the tool_call portion in YAML format
 		const yamlMatch = aggregatedYaml.match(/(tool_call:[\s\S]*)/);
 		if (yamlMatch) {
-			console.log(yamlMatch[1].trim());
+			console.log(yamlMatch[1]?.trim());
 		}
 	} else {
 		console.log(aggregatedYaml.trim());

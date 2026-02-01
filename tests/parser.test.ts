@@ -175,7 +175,7 @@ describe('Streaming Parser', () => {
         stream.write('intent:\n');
         stream.write('  type: respond\n');
         stream.end();
-
+        //@ts-ignore
         expect(intentType).toBe('respond');
     });
 });
@@ -533,13 +533,74 @@ describe('Streaming Chunk Variations', () => {
 
         while (cursor < source.length) {
             const size = chunkPattern[patternIndex % chunkPattern.length];
-            stream.write(source.slice(cursor, cursor + size));
-            cursor += size;
+            if(size){
+                stream.write(source.slice(cursor, cursor + size));
+                cursor += size;
+            }
+            
             patternIndex++;
         }
 
         const result = stream.end() as Record<string, unknown>;
         expect(Object.keys(result)).toHaveLength(20);
         expect(result).toEqual(expected);
+    });
+});
+
+describe('Multiline Strings (| syntax)', () => {
+    it('should parse multiline strings', () => {
+        const yaml = `
+description: |
+  This is a
+  multiline string
+  with multiple lines.
+next_key: value
+`;
+        const json = parseToJSON(yaml) as any;
+        expect(json.description).toBe('This is a\nmultiline string\nwith multiple lines.');
+        expect(json.next_key).toBe('value');
+    });
+
+    it('should handle multiline strings at the end of document', () => {
+        const yaml = `
+text: |
+  Line 1
+  Line 2`;
+        const json = parseToJSON(yaml) as any;
+        expect(json.text).toBe('Line 1\nLine 2');
+    });
+
+    it('should handle empty multiline strings', () => {
+        const yaml = `
+text: |
+next: k`;
+        const json = parseToJSON(yaml) as any;
+        expect(json.text).toBe('');
+        expect(json.next).toBe('k');
+    });
+
+    it('should handle multiline strings in nested objects', () => {
+        const yaml = `
+user:
+  bio: |
+    Software engineer
+    Loves coding
+  name: Alice`;
+        const json = parseToJSON(yaml) as any;
+        expect(json.user.bio).toBe('Software engineer\nLoves coding');
+        expect(json.user.name).toBe('Alice');
+    });
+
+    it('should handle multiline strings in arrays', () => {
+        const yaml = `
+items:
+  - name: Item1
+    desc: |
+      Multi line
+      description
+  - name: Item2`;
+        const json = parseToJSON(yaml) as any;
+        expect(json.items[0].desc).toBe('Multi line\ndescription');
+        expect(json.items[1].name).toBe('Item2');
     });
 });

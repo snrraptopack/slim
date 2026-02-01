@@ -1,15 +1,52 @@
 {
-  "name": "slim",
-  "module": "index.ts",
+  "name": "auwgent-yaml-lite",
+  "version": "0.1.0",
+  "description": "Streaming YAML-Lite parser for AI agents and generative UI",
   "type": "module",
-  "private": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target node && bun run build:types",
+    "build:types": "tsc --emitDeclarationOnly --outDir dist",
+    "test": "bun test",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "yaml",
+    "parser",
+    "streaming",
+    "ai",
+    "llm",
+    "agents",
+    "generative-ui",
+    "structured-output"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
-  "dependencies": {
-    "@google/genai": "^1.39.0"
+  "engines": {
+    "node": ">=18"
   }
 }

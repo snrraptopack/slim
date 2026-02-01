@@ -182,4 +182,64 @@ export function validate(input: string, options?: ParserOptions): true | ParseEr
     return result.errors;
 }
 
+/**
+ * Extract clean YAML from LLM output that may contain conversational noise.
+ * 
+ * Handles common LLM behaviors:
+ * - Preambles: "Sure!", "Okay, here's the YAML:", "Here you go:"
+ * - Code fences: ```yaml ... ``` or ``` ... ```
+ * - Trailing text: "Let me know if you need anything else!"
+ * - Mixed content before/after the YAML block
+ * 
+ * @example
+ * ```typescript
+ * const dirty = `Sure! Here's your UI:
+ * \`\`\`yaml
+ * type: Card
+ * title: Hello
+ * \`\`\`
+ * Let me know if you need changes!`;
+ * 
+ * const clean = extractYAML(dirty);
+ * // "type: Card\ntitle: Hello"
+ * ```
+ */
+export function extractYAML(input: string): string {
+    let text = input;
+
+    // Strip code fences
+    const fenceMatch = text.match(/```(?:yaml|yml)?\s*\n([\s\S]*?)```/);
+    if (fenceMatch && fenceMatch[1]) {
+        return fenceMatch[1].trim();
+    }
+
+    // Skip lines until we hit something that looks like YAML
+    const lines = text.split('\n');
+    let start = 0;
+    let end = lines.length;
+
+    // Find start: first line with "key:" or "- "
+    for (let i = 0; i < lines.length; i++) {
+        const t = (lines[i] ?? '').trim();
+        if (/^[a-zA-Z_]\w*:/.test(t) || /^-\s/.test(t)) {
+            start = i;
+            break;
+        }
+    }
+
+    // Find end: last line with YAML content (has indent, "key:", or "- ")
+    for (let i = lines.length - 1; i >= start; i--) {
+        const line = lines[i] ?? '';
+        const t = line.trim();
+        if (!t) continue;
+        if (/^\s/.test(line) || /^[a-zA-Z_]\w*:/.test(t) || /^-\s/.test(t)) {
+            end = i + 1;
+            break;
+        }
+    }
+
+    return lines.slice(start, end).join('\n').trim();
+}
+
 import type { ParseError } from './types';
+

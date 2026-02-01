@@ -7,7 +7,7 @@
 
 import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
 import { join, basename } from 'path';
-import { parseToJSON, parse, createStreamingParser } from './src/index';
+import { parseToJSON, parse, createStreamingParser, extractYAML } from './src/index';
 
 const FIXTURES_DIR = './fixtures';
 const OUTPUT_DIR = './output';
@@ -34,11 +34,15 @@ async function processFixture(filePath: string): Promise<TestResult> {
     const fileName = basename(filePath);
     const content = await readFile(filePath, 'utf-8');
     const isPartial = fileName.includes('partial');
+    const hasNoise = fileName.includes('noise');
     const inputLines = content.split('\n').length;
 
     const startTime = performance.now();
 
     try {
+        // Extract YAML if file contains LLM noise
+        const cleanContent = hasNoise ? extractYAML(content) : content;
+
         // Use regular parser for complete files, streaming for partial
         let json: unknown;
         let errors: string[] = [];
@@ -46,7 +50,7 @@ async function processFixture(filePath: string): Promise<TestResult> {
         if (isPartial) {
             // Use streaming parser to handle partial content
             const stream = createStreamingParser();
-            stream.write(content);
+            stream.write(cleanContent);
             json = stream.peek(); // Get partial result without closing
             // Also try to end it to see errors
             try {
@@ -55,9 +59,9 @@ async function processFixture(filePath: string): Promise<TestResult> {
                 // Partial files may fail on end()
             }
         } else {
-            const result = parse(content);
+            const result = parse(cleanContent);
             errors = result.errors.map(e => e.message);
-            json = parseToJSON(content);
+            json = parseToJSON(cleanContent);
         }
 
         const parseTime = performance.now() - startTime;
