@@ -1,8 +1,8 @@
-# @auwgent/yaml-lite
+# auwgent-yaml-lite
 
 A **streaming YAML-Lite parser** designed for AI agents, LLM applications, and generative UI.
 
-[![npm version](https://img.shields.io/npm/v/@auwgent/yaml-lite.svg)](https://www.npmjs.com/package/@auwgent/yaml-lite)
+[![npm version](https://img.shields.io/npm/v/auwgent-yaml-lite.svg)](https://www.npmjs.com/package/auwgent-yaml-lite)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -52,16 +52,16 @@ A **streaming YAML-Lite parser** designed for AI agents, LLM applications, and g
 
 ```bash
 # npm
-npm install @auwgent/yaml-lite
+npm install auwgent-yaml-lite
 
 # bun
-bun add @auwgent/yaml-lite
+bun add auwgent-yaml-lite
 
 # pnpm
-pnpm add @auwgent/yaml-lite
+pnpm add auwgent-yaml-lite
 
 # yarn
-yarn add @auwgent/yaml-lite
+yarn add auwgent-yaml-lite
 ```
 
 ---
@@ -71,7 +71,7 @@ yarn add @auwgent/yaml-lite
 ### Basic Parsing
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 const yaml = `
 user:
@@ -96,7 +96,7 @@ console.log(json);
 ### Streaming from LLM
 
 ```typescript
-import { createStreamingParser } from '@auwgent/yaml-lite';
+import { createStreamingParser } from 'auwgent-yaml-lite';
 
 const parser = createStreamingParser();
 
@@ -202,7 +202,7 @@ function parseToJSON(input: string, options?: ParserOptions): IRValue
 **Example:**
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 // Simple object
 const obj = parseToJSON(`
@@ -307,7 +307,7 @@ parser.write('  name: search\n');
 **Full streaming example:**
 
 ```typescript
-import { createStreamingParser } from '@auwgent/yaml-lite';
+import { createStreamingParser } from 'auwgent-yaml-lite';
 
 async function processLLMStream(stream: AsyncIterable<string>) {
   const parser = createStreamingParser();
@@ -358,7 +358,7 @@ function parseWithDiagnostics(input: string, options?: ParserOptions): {
 **Example:**
 
 ```typescript
-import { parseWithDiagnostics } from '@auwgent/yaml-lite';
+import { parseWithDiagnostics } from 'auwgent-yaml-lite';
 
 const result = parseWithDiagnostics(`
 button:
@@ -399,7 +399,7 @@ function validate(input: string, options?: ParserOptions): true | ParseError[]
 **Example:**
 
 ```typescript
-import { validate } from '@auwgent/yaml-lite';
+import { validate } from 'auwgent-yaml-lite';
 
 const valid = validate(`
 name: Alice
@@ -426,7 +426,7 @@ For advanced use cases, you can access the internal components:
 Convert YAML-Lite string into tokens.
 
 ```typescript
-import { tokenize } from '@auwgent/yaml-lite';
+import { tokenize } from 'auwgent-yaml-lite';
 
 const tokens = tokenize('name: Alice\nage: 30');
 // [
@@ -443,7 +443,7 @@ const tokens = tokenize('name: Alice\nage: 30');
 Convert tokens into an AST (Abstract Syntax Tree).
 
 ```typescript
-import { parse } from '@auwgent/yaml-lite';
+import { parse } from 'auwgent-yaml-lite';
 
 const result = parse('name: Alice');
 console.log(result.ast);
@@ -458,7 +458,7 @@ console.log(result.ast);
 Convert AST to JSON IR (Intermediate Representation).
 
 ```typescript
-import { parse, buildIR } from '@auwgent/yaml-lite';
+import { parse, buildIR } from 'auwgent-yaml-lite';
 
 const parseResult = parse('count: 42');
 const ir = buildIR(parseResult.ast);
@@ -711,7 +711,7 @@ if (ir.unresolvedRefs.length > 0) {
 Execute tools as soon as the intent is clear — don't wait for full response.
 
 ```typescript
-import { createStreamingParser } from '@auwgent/yaml-lite';
+import { createStreamingParser } from 'auwgent-yaml-lite';
 
 async function handleAgentStream(llmStream: AsyncIterable<string>) {
   const parser = createStreamingParser();
@@ -750,7 +750,7 @@ async function handleAgentStream(llmStream: AsyncIterable<string>) {
 Show UI components as they're generated.
 
 ```typescript
-import { createStreamingParser } from '@auwgent/yaml-lite';
+import { createStreamingParser } from 'auwgent-yaml-lite';
 
 async function streamGenerativeUI(llmStream: AsyncIterable<string>) {
   const parser = createStreamingParser();
@@ -782,7 +782,7 @@ function renderToDOM(ui: any) {
 Extract structured data from LLM responses reliably.
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 const prompt = `
 Extract the following information from this text:
@@ -819,7 +819,7 @@ console.log(data.person.age);   // 32 (number, not string!)
 Parse complex agent workflows with multiple intents.
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 const workflow = parseToJSON(`
 workflow:
@@ -856,7 +856,7 @@ for (const step of workflow.steps) {
 Use YAML-Lite for type-safe configuration.
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 import { readFileSync } from 'fs';
 
 interface AppConfig {
@@ -966,7 +966,7 @@ doc2: true
 ### Parse Errors
 
 ```typescript
-import { parseWithDiagnostics, validate } from '@auwgent/yaml-lite';
+import { parseWithDiagnostics, validate } from 'auwgent-yaml-lite';
 
 const input = `
   invalid: indentation
@@ -1023,7 +1023,7 @@ if (ir.unresolvedRefs.length > 0) {
 Enable strict mode to fail on any warning:
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 try {
   parseToJSON(input, { strict: true });
@@ -1061,7 +1061,7 @@ parseToJSON(fullText);  // No progressive updates!
 LLMs often add conversational text or code fences. Use `extractYAML` to clean it:
 
 ```typescript
-import { extractYAML, parseToJSON } from '@auwgent/yaml-lite';
+import { extractYAML, parseToJSON } from 'auwgent-yaml-lite';
 
 const llmOutput = `Sure! Here's the YAML:
 \`\`\`yaml
