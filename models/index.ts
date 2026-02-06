@@ -1,6 +1,8 @@
 import Groq from "groq-sdk";
 import { key } from "./key";
 import { createStreamingParser } from "../src/index"; // Relative import since we are in the repo
+import { agentPrompt, SYSTEM_PROMPT } from "./prompt";
+import { InferPromptDoc } from "../src/prompt";
 
 const groq = new Groq({ apiKey: key });
 
@@ -10,53 +12,32 @@ const MODELS = [
     "qwen/qwen-2.5-32b" // Corrected model name
 ];
 
-const PROMPT = `
-You are a system controller.
-Output pure YAML.
 
-tools:
-  search(query:string,limit:number)
-  create_alert(severity:"critical"|"medium",details:{source:string,code:number})
+// 1. Build the Prompt using our new Functional Engine
+// Note: We are importing the prompt definition from a separate file 'prompt.ts' 
+// if it existed, but here we define it inline or assume it is available.
+// Since the user edited 'models/prompt.ts' earlier (Step 1645), we should import from THERE.
 
-sys_cmd:
-  -type:<search|create_alert>
-  args:{key:value}
+async function main() {
+    // 2. Infer types directly from the Prompt Def
+    type SystemOutput = InferPromptDoc<typeof agentPrompt>;
 
-use the tools to help assist the user    
-`;
+    // We can also extract specific intent types if we want strict checking
+    type SysCmdIntent = NonNullable<SystemOutput['sys_cmd']>;
+    type UiRenderIntent = NonNullable<SystemOutput['ui_render']>;
 
-async function runDemo() {
-    // Define the discriminated union of intent shapes
-    type SearchIntent = {
-        type: 'search';
-        query: string;
-        limit: number;
-    };
+    type Intent = SysCmdIntent["type"] | UiRenderIntent["component"]
 
-    type AlertIntent = {
-        type: 'create_alert';
-        severity: 'low' | 'high' | 'critical';
-        details: { source: string; code: number };
-    };
-
-    type SystemIntent = SearchIntent | AlertIntent;
-
-    // The document shape
-    interface SystemOutput {
-        thought: string;
-        sys_cmd?: SystemIntent;
-    }
-
-    const parser = createStreamingParser<SystemIntent['type'], SystemOutput>({
-        intentKey: 'sys_cmd'
+    const parser = createStreamingParser<Intent, SystemOutput>({
+        intentKey: ['sys_cmd', 'ui_render'] // Listen for both!
     });
 
     const stream = await groq.chat.completions.create({
         messages: [
-            { role: "system", content: PROMPT },
+            { role: "system", content: SYSTEM_PROMPT },
             {
                 role: "user",
-                content: "Investigate the database latency and flag any critical errors."
+                content: "Find high database latency and create a critical alert for it."
             }
         ],
         model: MODELS[0],
@@ -105,5 +86,5 @@ async function runDemo() {
 
 // Run if main module
 if (import.meta.main) {
-    runDemo();
+    main();
 }

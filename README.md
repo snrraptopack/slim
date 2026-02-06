@@ -25,6 +25,7 @@ A **streaming YAML-Lite parser** designed for AI agents, LLM applications, and g
 - [YAML-Lite Syntax](#yaml-lite-syntax)
 - [Error Handling](#error-handling)
 - [Best Practices](#best-practices)
+- [Functional Prompt Engine](#functional-prompt-engine)
 
 ---
 
@@ -769,35 +770,34 @@ Execute tools as soon as the intent is clear — don't wait for full response.
 
 ```typescript
 import { createStreamingParser } from 'auwgent-yaml-lite';
+// ... (code omitted for brevity)
+```
 
-async function handleAgentStream(llmStream: AsyncIterable<string>) {
-  const parser = createStreamingParser();
-  let toolPromise: Promise<any> | null = null;
-  
-  // Start tool execution early
-  parser.onIntentReady((type) => {
-    if (type === 'tool_call') {
-      // Peek at current state to get tool name
-      const state = parser.peek() as any;
-      if (state.intent?.name) {
-        console.log(`Starting ${state.intent.name} tool...`);
-        toolPromise = prepareTool(state.intent.name);
-      }
+---
+
+## Functional Prompt Engine
+
+The **Functional Prompt Engine** allows you to build type-safe, composable system prompts with minimal code. It supports tool definitions, GenUI components, and dynamic variable injection.
+
+**[📚 Read the Full Documentation](./PROMPT.md)**
+
+```typescript
+import { definePrompt, tools, compilePrompt } from 'auwgent-yaml-lite/src/prompt';
+
+const agent = definePrompt({
+    instructions: "You represent {{company_name}}.",
+    intents: {
+        sys_cmd: tools([{ name: "search", args: { query: "string" } }])
     }
-  });
-  
-  for await (const chunk of llmStream) {
-    parser.write(chunk);
-  }
-  
-  const result = parser.end();
-  
-  // Execute with full arguments
-  if (result.intent?.type === 'tool_call') {
-    await toolPromise;  // Tool was already preparing!
-    return await executeTool(result.intent.name, result.intent.args);
-  }
-}
+});
+
+// 1. Compile with variables
+const prompt = compilePrompt(agent, { company_name: "Acme" });
+
+// 2. Infer types (Zero duplication!)
+import type { InferPromptDoc } from 'auwgent-yaml-lite/src/prompt';
+type Output = InferPromptDoc<typeof agent>;
+```
 ```
 
 **Why this matters:** If the LLM takes 2 seconds to generate the full response, but the intent type appears in 200ms, you save 1.8 seconds of latency.
