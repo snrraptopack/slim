@@ -56,7 +56,7 @@ export { IRBuilder, buildIR } from './ir-builder';
 
 import { Parser } from './parser';
 import { IRBuilder } from './ir-builder';
-import type { ParserOptions, IRValue, IRResult, ParseResult } from './types';
+import type { ParserOptions, IRValue, IRResult, ParseResult, StreamingParser } from './types';
 
 /**
  * Parse YAML-Lite string and convert to JSON-compatible value.
@@ -120,28 +120,40 @@ export function parseWithDiagnostics(
  * 
  * @example
  * ```typescript
- * const stream = createStreamingParser();
+ * type MyIntent = 'tool_call' | 'final_answer';
+ * type MyDoc = { intent: { type: MyIntent } };
+ * 
+ * const stream = createStreamingParser<MyIntent, MyDoc>();
+ * stream.onIntentReady((type) => {
+ *   // type is typed as 'tool_call' | 'final_answer'
+ * });
+ * 
  * stream.write('intent:\n');
  * stream.write('  type: tool_call\n');
  * 
- * const partial = stream.peek(); // Get current state
- * const final = stream.end();    // Get final result
+ * const result = stream.end(); // Typed as MyDoc
  * ```
  */
-export function createStreamingParser(options?: ParserOptions): {
-    write: (chunk: string) => void;
-    peek: () => IRValue;
-    end: () => IRValue;
-    onIntentReady: (handler: (intentType: string) => void) => void;
-} {
+export function createStreamingParser<TIntent = string, TDoc = unknown>(options?: ParserOptions): StreamingParser<TIntent, TDoc> {
     const parser = new Parser(options);
     const irBuilder = new IRBuilder();
-    let intentHandler: ((type: string) => void) | null = null;
+    let intentHandler: ((type: TIntent, payload: Record<string, any>) => void) | null = null;
 
     parser.on('intent_ready', (data: unknown) => {
-        const { type } = data as { type: string };
+        const { type, node } = data as { type: TIntent, node: any };
+
+        let payload: Record<string, any> = {};
+        if (node) {
+            try {
+                const buildResult = irBuilder.build(node);
+                payload = buildResult.value as Record<string, any>;
+            } catch (e) {
+                // Ignore errors
+            }
+        }
+
         if (intentHandler && type) {
-            intentHandler(type);
+            intentHandler(type, payload);
         }
     });
 
@@ -150,19 +162,35 @@ export function createStreamingParser(options?: ParserOptions): {
             parser.write(chunk);
         },
 
-        peek(): IRValue {
+        peek(): TDoc {
             const result = parser.peek();
-            return irBuilder.build(result.ast).value;
+            return irBuilder.build(result.ast).value as TDoc;
         },
 
-        end(): IRValue {
+        end(): TDoc {
             const result = parser.end();
-            return irBuilder.build(result.ast).value;
+            return irBuilder.build(result.ast).value as TDoc;
         },
 
-        onIntentReady(handler: (intentType: string) => void): void {
+        onIntentReady(handler: (intentType: TIntent, payload: Record<string, any>) => void): void {
             intentHandler = handler;
         },
+
+        on(event: string, handler: (...args: any[]) => void): void {
+            if (event === 'intent_ready') {
+                this.onIntentReady(handler as any);
+            } else {
+                parser.on(event as any, handler);
+            }
+        },
+
+        off(event: string, handler: (data: unknown) => void): void {
+            parser.off(event as any, handler);
+        },
+
+        reset(): void {
+            parser.reset();
+        }
     };
 }
 

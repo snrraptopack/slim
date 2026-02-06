@@ -45,6 +45,8 @@ interface ParserState {
     errors: ParseError[];
     /** Event listeners */
     listeners: Map<ParserEventType, Set<(data: unknown) => void>>;
+    /** Whether intent has been emitted */
+    emittedIntents: Set<ASTNode>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -57,11 +59,15 @@ export class Parser {
     private pos: number = 0;
     private state: ParserState;
     private options: ParserOptions;
+    private intentKeys: string[];
 
     constructor(options: ParserOptions = {}) {
         this.options = options;
         this.tokenizer = new Tokenizer(options);
         this.state = this.createInitialState();
+
+        const keys = options.intentKey ?? 'intent';
+        this.intentKeys = Array.isArray(keys) ? keys : [keys];
     }
 
     private createInitialState(): ParserState {
@@ -69,6 +75,7 @@ export class Parser {
             stack: [],
             errors: [],
             listeners: new Map(),
+            emittedIntents: new Set(),
         };
     }
 
@@ -141,7 +148,7 @@ export class Parser {
             // Check if document starts with a dash (root-level sequence)
             const firstNonCommentToken = this.tokens.find(t => t && t.type !== 'COMMENT' && t.type !== 'NEWLINE');
             const isRootSequence = firstNonCommentToken?.type === 'DASH';
-            
+
             if (isRootSequence) {
                 this.pushFrame('sequence', 0);
             } else {
@@ -459,6 +466,9 @@ export class Parser {
             }
             this.popFrame(pos);
         }
+
+        // Check if intent is newly ready after closing a block
+        this.checkIntentReady(pos);
     }
 
     private handleNewline(token: Token, pos: Position): void {
@@ -577,18 +587,39 @@ export class Parser {
         if (!rootFrame || rootFrame.node.kind !== 'mapping') return;
 
         const entries = (rootFrame.node as MappingNode).entries;
-        const intentEntry = entries.find(e => e.key === 'intent');
 
-        if (intentEntry && intentEntry.value.kind === 'mapping') {
-            const intentEntries = (intentEntry.value as MappingNode).entries;
-            const typeEntry = intentEntries.find(e => e.key === 'type');
+        // Find first matching key
+        const intentEntry = entries.find(e => this.intentKeys.includes(e.key));
 
-            if (typeEntry) {
-                this.emit('intent_ready', {
-                    type: typeEntry.value.kind === 'scalar'
-                        ? (typeEntry.value as ScalarNode).value
-                        : null,
-                }, pos);
+        if (intentEntry) {
+            // Helper to process a potential intent mapping
+            const processIntentNode = (node: ASTNode) => {
+                if (this.state.emittedIntents.has(node)) return;
+
+                if (node.kind === 'mapping') {
+                    const intentEntries = (node as MappingNode).entries;
+                    const typeEntry = intentEntries.find(e => e.key === 'type');
+
+                    if (typeEntry) {
+                        this.state.emittedIntents.add(node);
+                        this.emit('intent_ready', {
+                            type: typeEntry.value.kind === 'scalar'
+                                ? (typeEntry.value as ScalarNode).value
+                                : null,
+                            node: node
+                        }, pos);
+                    }
+                }
+            };
+
+            // Check if it's a list of intents or a single intent
+            if (intentEntry.value.kind === 'sequence') {
+                const seq = intentEntry.value as SequenceNode;
+                for (const item of seq.items) {
+                    processIntentNode(item);
+                }
+            } else {
+                processIntentNode(intentEntry.value);
             }
         }
     }

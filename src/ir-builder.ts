@@ -88,20 +88,133 @@ function coerceValue(value: string, quoted: boolean): string | number | boolean 
         }
     }
 
-    // Inline JSON object: {"key": "value"}
+    // Inline object: { key: "value" } or {"key": "value"}
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        // First try JSON parse
         try {
             const parsed = JSON.parse(trimmed);
             if (typeof parsed === 'object' && parsed !== null) {
                 return parsed;
             }
         } catch {
-            // Not valid JSON, keep as string
+            // Try YAML-style parsing
+        }
+
+        // YAML-style: { key: value, key2: "value2" }
+        const result = parseYAMLFlowObject(trimmed);
+        if (result !== null) {
+            return result;
         }
     }
 
     // Default to string
     return value;
+}
+
+/**
+ * Parse YAML-style flow object: { key: value, key2: "quoted" }
+ */
+function parseYAMLFlowObject(input: string): Record<string, unknown> | null {
+    const content = input.slice(1, -1).trim();
+    if (!content) return {};
+
+    const result: Record<string, unknown> = {};
+    let i = 0;
+
+    while (i < content.length) {
+        // Skip whitespace
+        while (i < content.length && /\s/.test(content[i] ?? '')) i++;
+        if (i >= content.length) break;
+
+        // Parse key
+        let key = '';
+        const keyChar = content[i];
+        if (keyChar === '"' || keyChar === "'") {
+            const quote = keyChar;
+            i++;
+            while (i < content.length && content[i] !== quote) {
+                key += content[i];
+                i++;
+            }
+            i++;
+        } else {
+            while (i < content.length && !/[:\s,}]/.test(content[i] ?? '')) {
+                key += content[i];
+                i++;
+            }
+        }
+
+        if (!key) break;
+
+        // Skip to colon
+        while (i < content.length && /\s/.test(content[i] ?? '')) i++;
+        if (content[i] !== ':') return null;
+        i++;
+        while (i < content.length && /\s/.test(content[i] ?? '')) i++;
+
+        // Parse value
+        let value: unknown;
+        const valChar = content[i];
+
+        if (valChar === '"' || valChar === "'") {
+            const quote = valChar;
+            i++;
+            let str = '';
+            while (i < content.length && content[i] !== quote) {
+                if (content[i] === '\\' && i + 1 < content.length) {
+                    i++;
+                    str += content[i];
+                } else {
+                    str += content[i];
+                }
+                i++;
+            }
+            i++;
+            value = str;
+        } else if (valChar === '{') {
+            let depth = 1;
+            let nested = '{';
+            i++;
+            while (i < content.length && depth > 0) {
+                if (content[i] === '{') depth++;
+                if (content[i] === '}') depth--;
+                nested += content[i];
+                i++;
+            }
+            value = parseYAMLFlowObject(nested);
+            if (value === null) return null;
+        } else if (valChar === '[') {
+            let depth = 1;
+            let arr = '[';
+            i++;
+            while (i < content.length && depth > 0) {
+                if (content[i] === '[') depth++;
+                if (content[i] === ']') depth--;
+                arr += content[i];
+                i++;
+            }
+            try { value = JSON.parse(arr); } catch { value = arr; }
+        } else {
+            let raw = '';
+            while (i < content.length && content[i] !== ',' && content[i] !== '}') {
+                raw += content[i];
+                i++;
+            }
+            raw = raw.trim();
+            if (raw === 'true') value = true;
+            else if (raw === 'false') value = false;
+            else if (raw === 'null') value = null;
+            else if (/^-?\d+$/.test(raw)) value = parseInt(raw, 10);
+            else if (/^-?\d*\.\d+$/.test(raw)) value = parseFloat(raw);
+            else value = raw;
+        }
+
+        result[key] = value;
+        while (i < content.length && /\s/.test(content[i] ?? '')) i++;
+        if (content[i] === ',') i++;
+    }
+
+    return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

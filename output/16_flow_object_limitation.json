@@ -1,0 +1,11 @@
+{
+  "single_line": {
+    "mode": "dark",
+    "retries": 3
+  },
+  "multi_line": "{",
+  "inner": "value",
+  "block_syntax": {
+    "inner": "value"
+  }
+}

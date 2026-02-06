@@ -217,6 +217,13 @@ export interface ParserOptions {
 
     /** Schema for intent validation */
     intentSchema?: IntentSchema;
+
+    /** 
+     * The key name(s) that trigger the `intent_ready` event.
+     * Can be a single string or array of strings.
+     * Default: "intent"
+     */
+    intentKey?: string | string[];
 }
 
 /** Schema for validating intent blocks */
@@ -233,22 +240,28 @@ export interface IntentSchema {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Streaming parser instance */
-export interface StreamingParser {
+/** Streaming parser instance */
+export interface StreamingParser<TIntent = string, TDoc = unknown> {
     /** Write a chunk of input */
     write(chunk: string): void;
 
     /** Signal end of input, returns final result */
-    end(): ParseResult;
+    end(): TDoc;
 
     /** Get current partial result (without ending) */
-    peek(): ParseResult;
+    peek(): TDoc;
 
     /** Reset parser state */
     reset(): void;
 
     /** Subscribe to parser events */
-    on(event: ParserEventType, handler: (data: unknown) => void): void;
+    /** Subscribe to parser events */
+    on(event: 'intent_ready', handler: (intentType: TIntent, payload: Record<string, any>) => void): void;
+    on(event: ParserEventType, handler: (data: any) => void): void;
 
     /** Unsubscribe from parser events */
-    off(event: ParserEventType, handler: (data: unknown) => void): void;
+    off(event: ParserEventType, handler: (data: any) => void): void;
+
+    // Helper specific to intent
+    onIntentReady(handler: (intentType: TIntent, payload: Record<string, any>) => void): void;
 }

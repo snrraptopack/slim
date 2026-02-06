@@ -1,8 +1,8 @@
-# @auwgent/yaml-lite
+# auwgent-yaml-lite
 
 A **streaming YAML-Lite parser** designed for AI agents, LLM applications, and generative UI.
 
-[![npm version](https://img.shields.io/npm/v/@auwgent/yaml-lite.svg)](https://www.npmjs.com/package/@auwgent/yaml-lite)
+[![npm version](https://img.shields.io/npm/v/auwgent-yaml-lite.svg)](https://www.npmjs.com/package/auwgent-yaml-lite)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -52,16 +52,16 @@ A **streaming YAML-Lite parser** designed for AI agents, LLM applications, and g
 
 ```bash
 # npm
-npm install @auwgent/yaml-lite
+npm install auwgent-yaml-lite
 
 # bun
-bun add @auwgent/yaml-lite
+bun add auwgent-yaml-lite
 
 # pnpm
-pnpm add @auwgent/yaml-lite
+pnpm add auwgent-yaml-lite
 
 # yarn
-yarn add @auwgent/yaml-lite
+yarn add auwgent-yaml-lite
 ```
 
 ---
@@ -71,7 +71,7 @@ yarn add @auwgent/yaml-lite
 ### Basic Parsing
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 const yaml = `
 user:
@@ -96,7 +96,7 @@ console.log(json);
 ### Streaming from LLM
 
 ```typescript
-import { createStreamingParser } from '@auwgent/yaml-lite';
+import { createStreamingParser } from 'auwgent-yaml-lite';
 
 const parser = createStreamingParser();
 
@@ -202,7 +202,7 @@ function parseToJSON(input: string, options?: ParserOptions): IRValue
 **Example:**
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 // Simple object
 const obj = parseToJSON(`
@@ -248,7 +248,7 @@ function createStreamingParser(options?: ParserOptions): {
   write: (chunk: string) => void;
   peek: () => IRValue;
   end: () => IRValue;
-  onIntentReady: (handler: (intentType: string) => void) => void;
+  onIntentReady: (handler: (intentType: TIntent, payload: Record<string, any>) => void) => void;
 }
 ```
 
@@ -287,35 +287,43 @@ const final = parser.end();
 // { name: 'Alice', age: 30 }
 ```
 
-#### `onIntentReady(handler: (intentType: string) => void): void`
+#### `onIntentReady(handler: (intentType: TIntent, payload: Record<string, any>) => void): void`
 
-Register a callback that fires when an `intent` block's `type` field is parsed. Enables early action routing.
+Register a callback that fires as soon as an `intent` block (or custom `intentKey`) is recognized. 
+
+- **Early Trigger**: Fires the moment the `type` field is parsed, often seconds before the LLM finishes.
+- **Isolated Payload**: Receives the specific intent object as a `payload` argument, enabling parallel execution without manual parsing.
+- **Polymorphic Support**: Correctly handles flat objects, nested structures, and even **YAML Lists** of intents.
 
 ```typescript
 const parser = createStreamingParser();
 
-parser.onIntentReady((type) => {
+parser.onIntentReady((type, payload) => {
   console.log('Intent detected:', type);
-  // "tool_call" — start preparing tool execution
+  // payload: { type: 'tool_call', name: 'search', args: { ... } }
+  if (type === 'tool_call') {
+    startTool(payload.name, payload.args);
+  }
 });
 
-parser.write('intent:\n');
-parser.write('  type: tool_call\n');  // ← Callback fires here!
-parser.write('  name: search\n');
+parser.write('sys_cmd:\n');
+parser.write('  - type: tool_call\n'); // Callback fires for each item in a list!
+parser.write('    name: search\n');
 ```
 
 **Full streaming example:**
 
 ```typescript
-import { createStreamingParser } from '@auwgent/yaml-lite';
+import { createStreamingParser } from 'auwgent-yaml-lite';
 
 async function processLLMStream(stream: AsyncIterable<string>) {
   const parser = createStreamingParser();
   
-  // React early to intent type
-  parser.onIntentReady((type) => {
+  // React early to intent type and data
+  parser.onIntentReady((type, payload) => {
     if (type === 'tool_call') {
-      console.log('Tool call detected — preparing execution');
+      console.log('Tool call detected:', payload.name);
+      executeEarly(payload.name, payload.args);
     }
   });
   
@@ -358,7 +366,7 @@ function parseWithDiagnostics(input: string, options?: ParserOptions): {
 **Example:**
 
 ```typescript
-import { parseWithDiagnostics } from '@auwgent/yaml-lite';
+import { parseWithDiagnostics } from 'auwgent-yaml-lite';
 
 const result = parseWithDiagnostics(`
 button:
@@ -399,7 +407,7 @@ function validate(input: string, options?: ParserOptions): true | ParseError[]
 **Example:**
 
 ```typescript
-import { validate } from '@auwgent/yaml-lite';
+import { validate } from 'auwgent-yaml-lite';
 
 const valid = validate(`
 name: Alice
@@ -426,7 +434,7 @@ For advanced use cases, you can access the internal components:
 Convert YAML-Lite string into tokens.
 
 ```typescript
-import { tokenize } from '@auwgent/yaml-lite';
+import { tokenize } from 'auwgent-yaml-lite';
 
 const tokens = tokenize('name: Alice\nage: 30');
 // [
@@ -443,7 +451,7 @@ const tokens = tokenize('name: Alice\nage: 30');
 Convert tokens into an AST (Abstract Syntax Tree).
 
 ```typescript
-import { parse } from '@auwgent/yaml-lite';
+import { parse } from 'auwgent-yaml-lite';
 
 const result = parse('name: Alice');
 console.log(result.ast);
@@ -458,7 +466,7 @@ console.log(result.ast);
 Convert AST to JSON IR (Intermediate Representation).
 
 ```typescript
-import { parse, buildIR } from '@auwgent/yaml-lite';
+import { parse, buildIR } from 'auwgent-yaml-lite';
 
 const parseResult = parse('count: 42');
 const ir = buildIR(parseResult.ast);
@@ -704,6 +712,55 @@ if (ir.unresolvedRefs.length > 0) {
 
 ---
 
+## Zero-Latency Intent Detection ("Fast Intent")
+
+Unlike waiting for the full response, `auwgent-yaml-lite` can trigger actions the **millisecond** an intent block closes.
+
+```typescript
+const parser = createStreamingParser({
+  intentKey: 'action' // Listen for 'action' keys at root
+});
+
+// Triggered immediately when indentation closes the block
+parser.onIntentReady((type) => {
+  if (type === 'search_db') {
+    // Start searching while LLM is still explaining!
+    startSearch();
+  }
+});
+```
+
+## Type-Safe Streaming
+
+You can enforce TypeScript strictness on both the intents and the final document shape using Generics.
+
+```typescript
+type MyIntent = 'tool_call' | 'final_answer';
+
+interface MyDoc {
+  intent: { type: MyIntent; args: Record<string, any> };
+  thought: string;
+}
+
+// Pass types to the factory
+const parser = createStreamingParser<MyIntent, MyDoc>({
+    intentKey: 'sys_cmd'
+});
+
+// 'type' is strictly typed as 'tool_call' | 'final_answer'
+parser.onIntentReady((type, payload) => {
+  if (type === 'tool_call') {
+      // 'payload' captures the specific intent shape (even nested or items in a list)
+      console.log('Tool:', payload.args?.name); 
+  }
+});
+
+// 'result' is strictly typed as MyDoc
+const result = parser.end();
+```
+
+---
+
 ## Use Cases
 
 ### 1. AI Agent Tool Calling
@@ -711,7 +768,7 @@ if (ir.unresolvedRefs.length > 0) {
 Execute tools as soon as the intent is clear — don't wait for full response.
 
 ```typescript
-import { createStreamingParser } from '@auwgent/yaml-lite';
+import { createStreamingParser } from 'auwgent-yaml-lite';
 
 async function handleAgentStream(llmStream: AsyncIterable<string>) {
   const parser = createStreamingParser();
@@ -750,7 +807,7 @@ async function handleAgentStream(llmStream: AsyncIterable<string>) {
 Show UI components as they're generated.
 
 ```typescript
-import { createStreamingParser } from '@auwgent/yaml-lite';
+import { createStreamingParser } from 'auwgent-yaml-lite';
 
 async function streamGenerativeUI(llmStream: AsyncIterable<string>) {
   const parser = createStreamingParser();
@@ -782,7 +839,7 @@ function renderToDOM(ui: any) {
 Extract structured data from LLM responses reliably.
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 const prompt = `
 Extract the following information from this text:
@@ -819,7 +876,7 @@ console.log(data.person.age);   // 32 (number, not string!)
 Parse complex agent workflows with multiple intents.
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 const workflow = parseToJSON(`
 workflow:
@@ -856,7 +913,7 @@ for (const step of workflow.steps) {
 Use YAML-Lite for type-safe configuration.
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 import { readFileSync } from 'fs';
 
 interface AppConfig {
@@ -918,6 +975,10 @@ quoted_number: "123"
 tags: ["red", "green", "blue"]
 numbers: [1, 2, 3, 4, 5]
 
+# Inline flow objects (YAML-style, unquoted keys)
+args: { id: "INC-123", limit: 10 }
+nested: { user: { name: "John" }, active: true }
+
 # Empty blocks (become {})
 config:
   section:
@@ -943,10 +1004,6 @@ defaults: &defaults
 production:
   <<: *defaults
 
-# ❌ Flow style
-object: { key: value }
-array: [1, 2, 3]  # ← Actually this IS supported for inline arrays
-
 # ❌ Tags
 date: !!timestamp 2024-01-01
 
@@ -966,7 +1023,7 @@ doc2: true
 ### Parse Errors
 
 ```typescript
-import { parseWithDiagnostics, validate } from '@auwgent/yaml-lite';
+import { parseWithDiagnostics, validate } from 'auwgent-yaml-lite';
 
 const input = `
   invalid: indentation
@@ -1023,7 +1080,7 @@ if (ir.unresolvedRefs.length > 0) {
 Enable strict mode to fail on any warning:
 
 ```typescript
-import { parseToJSON } from '@auwgent/yaml-lite';
+import { parseToJSON } from 'auwgent-yaml-lite';
 
 try {
   parseToJSON(input, { strict: true });
@@ -1061,7 +1118,7 @@ parseToJSON(fullText);  // No progressive updates!
 LLMs often add conversational text or code fences. Use `extractYAML` to clean it:
 
 ```typescript
-import { extractYAML, parseToJSON } from '@auwgent/yaml-lite';
+import { extractYAML, parseToJSON } from 'auwgent-yaml-lite';
 
 const llmOutput = `Sure! Here's the YAML:
 \`\`\`yaml

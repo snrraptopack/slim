@@ -1,6 +1,6 @@
 {
   "name": "auwgent-yaml-lite",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Streaming YAML-Lite parser for AI agents and generative UI",
   "type": "module",
   "main": "./dist/index.js",
@@ -48,5 +48,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "groq-sdk": "^0.37.0"
   }
 }

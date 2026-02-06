@@ -231,8 +231,45 @@ export class Tokenizer {
             return this.tokenizeMultilineString();
         }
 
+        // Flow object { ... } or flow array [ ... ] - capture as single scalar
+        if (char === '{' || char === '[') {
+            return this.tokenizeFlowCollection(char);
+        }
+
         // Key or unquoted scalar
         return this.tokenizeKeyOrScalar();
+    }
+
+    private tokenizeFlowCollection(openChar: string): Token {
+        const startCol = this.state.column;
+        const closeChar = openChar === '{' ? '}' : ']';
+        let value = '';
+        let depth = 0;
+
+        while (this.state.pos < this.input.length) {
+            const char = this.peekChar();
+
+            if (char === openChar) depth++;
+            if (char === closeChar) depth--;
+
+            value += char;
+            this.advance();
+
+            if (depth === 0) break;
+
+            // Don't span multiple lines
+            if (char === '\n' || char === '\r') {
+                break;
+            }
+        }
+
+        return {
+            type: 'SCALAR',
+            value: value.trim(),
+            line: this.state.line,
+            column: startCol,
+            indent: this.state.currentIndent,
+        };
     }
 
     private tokenizeMultilineString(): Token {
