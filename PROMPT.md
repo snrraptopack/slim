@@ -99,3 +99,29 @@ const bot = definePrompt({
     }
 });
 ```
+
+### Advanced Schema & Lists
+
+You can use `schema()` to define complex, nested structures (including lists) for advanced agent behaviors like parallel execution plans. Arrays are automatically formatted as clean YAML lists.
+
+```typescript
+const planSchema = {
+    steps: [
+        { tool: "search", args: { q: "foo" } },
+        { tool: "analyze", args: { data: "bar" } }
+    ]
+};
+
+// ...
+sys_cmd: schema(planSchema, "Execute tasks in parallel")
+```
+
+**Output:**
+```yaml
+sys_cmd:
+  steps:
+    - tool: search
+      args: { q: foo }
+    - tool: analyze
+      args: { data: bar }
+```

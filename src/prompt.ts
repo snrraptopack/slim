@@ -222,14 +222,48 @@ function formatComponents(comps: ComponentDef[]): string {
     }).join('\n');
 }
 
-function formatSchema(obj: any, depth: number): string {
+const formatSchema = (obj: any, depth: number): string => {
     if (typeof obj === 'string') return obj;
     if (typeof obj !== 'object' || obj === null) return String(obj);
 
     const indent = '  '.repeat(depth);
+
+    // Handle Array
+    if (Array.isArray(obj)) {
+        return obj.map((item, index) => {
+            // For simple scalars in list
+            if (typeof item !== 'object' || item === null) {
+                return `${indent}- ${item}`;
+            }
+            // Heuristic: Format the item at depth 0, but prefix the first line with "- " 
+            // and subsequent lines with "  "
+            // The item itself will be indented relative to the DASH
+            const itemStr = formatSchema(item, 0);
+            const lines = itemStr.split('\n');
+            const [first, ...rest] = lines;
+            const restIndented = rest.map(l => `${indent}  ${l}`).join('\n');
+
+            // Critical fix: The first line must be indented to match the parent
+            // e.g. "  - key: val"
+            const firstLine = `${indent}- ${first}`;
+
+            return rest.length > 0
+                ? `${firstLine}\n${restIndented}`
+                : firstLine;
+        }).join('\n');
+    }
+
+    // Handle Object
     return Object.entries(obj)
         .map(([k, v]) => {
-            if (typeof v === 'string') return `${indent}${k}: ${v}`;
+            if (typeof v !== 'object' || v === null) return `${indent}${k}: ${v}`;
+            // If v is array, we want:
+            // key:
+            //   - item
+            if (Array.isArray(v)) {
+                return `${indent}${k}:\n${formatSchema(v, depth + 1)}`;
+            }
+            // If v is object
             return `${indent}${k}:\n${formatSchema(v, depth + 1)}`;
         })
         .join('\n');
