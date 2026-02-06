@@ -56,7 +56,7 @@ export { IRBuilder, buildIR } from './ir-builder';
 
 import { Parser } from './parser';
 import { IRBuilder } from './ir-builder';
-import type { ParserOptions, IRValue, IRResult, ParseResult, StreamingParser } from './types';
+import type { ParserOptions, IRValue, IRResult, ParseResult, StreamingParser, MappingNode } from './types';
 
 /**
  * Parse YAML-Lite string and convert to JSON-compatible value.
@@ -138,8 +138,45 @@ export function createStreamingParser<TIntent = string, TDoc = unknown>(options?
     const parser = new Parser(options);
     const irBuilder = new IRBuilder();
     let intentHandler: ((type: TIntent, payload: Record<string, any>) => void) | null = null;
+    let partialHandler: ((type: TIntent, payload: Record<string, any>) => void) | null = null;
 
+    // Track active intent state for partial updates
+    let activeIntentNode: any = null;
+    let activeIntentType: TIntent | null = null;
+    let activeIntentKey: string | null = null; // New: Track which key matched (e.g. 'sys_cmd')
+
+    // Helper to emit partial update
+    const emitPartial = () => {
+        if (activeIntentType && activeIntentNode && partialHandler && activeIntentKey) {
+            try {
+                // Build partial object from current AST state
+                const buildResult = irBuilder.build(activeIntentNode);
+
+                // Wrap in the intent key to match full document structure
+                // Use the ACTUAL key that matched (e.g. 'sys_cmd')
+                const payload = {
+                    [activeIntentKey]: buildResult.value
+                } as Record<string, any>;
+
+                partialHandler(activeIntentType, payload);
+            } catch (e) {
+                // Ignore build errors during partial construction
+            }
+        }
+    };
+
+    // 1. Listen for START of an intent
     parser.on('intent_ready', (data: unknown) => {
+        // This event actually fires when the INTENT MAPPING is detected, 
+        // but before it's fully populated if it's large.
+        // Wait, 'intent_ready' in current parser fires at the END.
+        // We need to detect the START. 
+        // Currently Parser doesn't have 'intent_start'.
+        // BUT, we can hook into 'key' events or use the 'activeIntentNode' from types if we added it.
+
+        // Strategy: We'll rely on the parser to tell us when an intent *might* be starting
+        // For now, let's use the standard flow.
+
         const { type, node } = data as { type: TIntent, node: any };
 
         let payload: Record<string, any> = {};
@@ -155,7 +192,62 @@ export function createStreamingParser<TIntent = string, TDoc = unknown>(options?
         if (intentHandler && type) {
             intentHandler(type, payload);
         }
+
+        // clear active state
+        activeIntentNode = null;
+        activeIntentType = null;
+        activeIntentKey = null; // Clear the active intent key
     });
+
+    // 2. Listen for granular updates to trigger partial rebuilds (Brute Force Strategy)
+    const checkForActiveIntent = () => {
+        // Access internal parser state (cast to any for internal access)
+        const p = parser as any;
+        const stack = p.state.stack;
+
+        // Root frame
+        const root = stack[0];
+        if (!root || root.node.kind !== 'mapping') return;
+
+        // Check if we have an intent key in the root entries
+        // We use the same 'intentKey' logic as the parser
+        const intentKeys = Array.isArray(p.intentKeys) ? p.intentKeys : [p.intentKeys];
+
+        // Find the entry that matches our intent key
+        // We look directly at the AST node's entries
+        const entries = (root.node as MappingNode).entries;
+        const intentEntry = entries.find(e => intentKeys.includes(e.key));
+
+        if (intentEntry) {
+            // Found an intent!
+            activeIntentNode = intentEntry.value;
+            activeIntentKey = intentEntry.key; // Store the key name!
+
+            // Try to find the 'type' field inside it to know WHAT intent it is
+            if (activeIntentNode.kind === 'mapping') {
+                const typeEntry = activeIntentNode.entries.find((e: any) => e.key === 'type');
+                if (typeEntry && typeEntry.value.kind === 'scalar') {
+                    activeIntentType = typeEntry.value.value;
+                } else {
+                    // Fallback: If no type field, use the key itself as the type?
+                    activeIntentType = activeIntentKey as unknown as TIntent;
+                }
+            } else if (activeIntentNode.kind === 'sequence') {
+                // If the intent is a list, we might be inside one of the items
+                // Use the key itself (e.g. 'sys_cmd') as the type for the batch
+                activeIntentType = activeIntentKey as unknown as TIntent;
+            }
+
+            // If we have a type, emit partial!
+            if (activeIntentType) {
+                emitPartial();
+            }
+        }
+    };
+
+    // Hook into value and block_end to trigger checks
+    parser.on('value', checkForActiveIntent);
+    parser.on('block_end', checkForActiveIntent);
 
     return {
         write(chunk: string): void {
@@ -176,9 +268,15 @@ export function createStreamingParser<TIntent = string, TDoc = unknown>(options?
             intentHandler = handler;
         },
 
+        onIntentPartial(handler: (intentType: TIntent, payload: Record<string, any>) => void): void {
+            partialHandler = handler;
+        },
+
         on(event: string, handler: (...args: any[]) => void): void {
             if (event === 'intent_ready') {
                 this.onIntentReady(handler as any);
+            } else if (event === 'intent_partial') {
+                partialHandler = handler as any;
             } else {
                 parser.on(event as any, handler);
             }

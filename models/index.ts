@@ -67,21 +67,25 @@ async function runDemo() {
     process.stdout.write("Stream: ");
 
     // Handler receives the specific 'payload' object
-    parser.onIntentReady((type, payload) => {
-        console.log(`\n\nPOLYMORPHIC INTENT DETECTED: [${type}]`);
-
-        // TypeScript doesn't know the exact shape here without casting, 
-        // but at runtime 'payload' is the specific object for that intent.
-        console.log("   Payload Shape:", JSON.stringify(payload, null, 2));
-
-        if (type === 'create_alert') {
-            const alert = payload as AlertIntent; // Safe cast if we trust the parser
-            console.log(`   (>> Triggering PagerDuty: ${alert.severity?.toUpperCase()} alert from ${alert.details?.source})`);
-        } else if (type === 'search') {
-            const search = payload as SearchIntent;
-            console.log(`   (>> ElasticSearch Query: "${search.query}" limit=${search.limit})`);
-        }
+    parser.onIntentPartial((type, payload) => {
+        console.log(`\nPartial update [${type}]:`, JSON.stringify(payload));
     });
+
+    // parser.onIntentReady((type, payload) => {
+    //     console.log(`\n\nPOLYMORPHIC INTENT DETECTED: [${type}]`);
+
+    //     // TypeScript doesn't know the exact shape here without casting, 
+    //     // but at runtime 'payload' is the specific object for that intent.
+    //     console.log("   Payload Shape:", JSON.stringify(payload, null, 2));
+
+    //     if (type === 'create_alert') {
+    //         const alert = payload as AlertIntent; // Safe cast if we trust the parser
+    //         console.log(`   (>> Triggering PagerDuty: ${alert.severity?.toUpperCase()} alert from ${alert.details?.source})`);
+    //     } else if (type === 'search') {
+    //         const search = payload as SearchIntent;
+    //         console.log(`   (>> ElasticSearch Query: "${search.query}" limit=${search.limit})`);
+    //     }
+    // });
 
     try {
         for await (const chunk of stream) {

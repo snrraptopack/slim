@@ -264,4 +264,7 @@ export interface StreamingParser<TIntent = string, TDoc = unknown> {
 
     // Helper specific to intent
     onIntentReady(handler: (intentType: TIntent, payload: Record<string, any>) => void): void;
+
+    /** Subscribe to partial intent updates (for GenUI) */
+    onIntentPartial(handler: (intentType: TIntent, payload: Record<string, any>) => void): void;
 }
