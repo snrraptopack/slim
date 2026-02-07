@@ -272,6 +272,6 @@ export interface StreamingParser<TIntent = string, TDoc = unknown, TPayload = Re
     /** Type-safe handler for specific intents */
     onIntent<K extends keyof TDoc>(intent: K, handler: (payload: NonNullable<TDoc[K]>) => void): void;
 
-    /** Subscribe to partial intent updates (for GenUI) */
-    onIntentPartial(handler: (intentType: TIntent, payload: TPayload) => void): void;
+    /** Subscribe to partial intent updates (for GenUI). Optionally debounce for performance. */
+    onIntentPartial(handler: (intentType: TIntent, payload: TPayload) => void, options?: { debounceMs?: number }): void;
 }

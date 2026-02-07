@@ -17,15 +17,14 @@
 
     let { data }: { data: GenUIComponent } = $props();
 
-    // specific hack for partial streaming:
-    // sometimes 'component' is undefined if the stream just started
-    let Component = $derived(
-        data?.component ? COMPONENT_MAP[data.component] : null,
-    );
+    // Use state that will be updated in an effect
+    let Component = $state<any>(null);
 
+    // Update component when data changes
     $effect(() => {
+        Component = data?.component ? COMPONENT_MAP[data.component] : null;
         console.log("DynamicRenderer Data:", $state.snapshot(data));
-        console.log("Resolved Component:", Component);
+        console.log("Resolved Component:", Component?.name || "NULL");
     });
 </script>
 

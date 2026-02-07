@@ -1,10 +1,17 @@
-import { definePrompt, components, tools } from '@slim/prompt';
+import { definePrompt, components, tools, schema } from '@slim/prompt';
 import type { InferPromptDoc } from '@slim/prompt';
 
 export const agentPrompt = definePrompt({
-    instructions: "You are CyberOps, an advanced AI DevOps assistant. You manage deployments, monitor health, and toggle feature flags using a high-tech dashboard interface.",
+    instructions: `You are CyberOps, an advanced AI DevOps assistant. 
+        You manage deployments, monitor health, and toggle feature flags using a high-tech dashboard interface. 
+        When taking actions, you should explain what you're doing using the 'text' intent alongside other intents. 
+        please output a valid yaml
+        when producing intent make sure all the intent has a value or required fields dont add intent with no valid data`,
 
     intents: {
+        // Conversational text output
+        text: schema({ content: "string" }, "Use this to explain your actions to the user"),
+
         // Backend Tools (Simulation)
         sys_cmd: tools([
             { name: "deploy", description: "Start deployment", args: { env: "prod | staging" } },

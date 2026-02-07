@@ -152,9 +152,9 @@ export function compilePrompt(def: PromptDef, vars: Record<string, any> = {}): s
         const toolsDoc = toolIntents.map(t => {
             const list = t.tools.map(tool => {
                 const args = Object.entries(tool.args)
-                    .map(([k, v]) => `${k}:${v}`)
+                    .map(([k, v]) => `${k}: ${v}`)
                     .join(', ');
-                return `- ${tool.name}(${args})\n  ${interpolate(tool.description)}`;
+                return `- ${tool.name}({ ${args} })\n  ${interpolate(tool.description)}`;
             }).join('\n');
             const desc = t.description ? `> ${interpolate(t.description)}\n` : '';
             return `## [${t.key}] Callable Tools\n${desc}${list}`;
@@ -168,9 +168,9 @@ export function compilePrompt(def: PromptDef, vars: Record<string, any> = {}): s
         const compDoc = compIntents.map(c => {
             const list = c.comps.map(comp => {
                 const props = Object.entries(comp.props)
-                    .map(([k, v]) => `${k}:${v}`)
+                    .map(([k, v]) => `${k}: ${v}`)
                     .join(', ');
-                return `- ${comp.name}(${props})\n  Usage: ${interpolate(comp.description)}`;
+                return `- ${comp.name}({ ${props} })\n  Usage: ${interpolate(comp.description)}`;
             }).join('\n');
             const desc = c.description ? `> ${interpolate(c.description)}\n` : '';
             return `## [${c.key}] UI Components\n${desc}${list}`;
@@ -188,7 +188,7 @@ export function compilePrompt(def: PromptDef, vars: Record<string, any> = {}): s
     }
 
     // 4. The Protocol (Explicit YAML Schema)
-    let protocol = `# PROTOCOL (YAML)\nOutput a valid YAML object with EXACTLY ONE of the following keys (do not mix them):`;
+    let protocol = `# PROTOCOL (YAML)\nOutput a valid YAML object. You may use one or more of the following intent keys:`;
 
     // Option 1: Tools
     toolIntents.forEach(t => {

@@ -8,6 +8,12 @@ export default defineConfig({
         tailwindcss(),
         sveltekit()
     ],
+    resolve: {
+        alias: {
+            '@slim': path.resolve(__dirname, '../src'),
+            '@models': path.resolve(__dirname, '../models')
+        }
+    },
     server: {
         fs: {
             allow: ['..']

@@ -7,8 +7,8 @@ export class ChatStore {
     messages = $state<{ role: 'user' | 'assistant' | 'system', content?: string, components?: any[] }[]>([]);
     isStreaming = $state(false);
 
-    // Internal Parser - Listen for BOTH intent types
-    private parser = createStreamingParser<SystemOutput>({ intentKey: ['ui_render', 'sys_cmd'] });
+    // Internal Parser - Listen for ALL intent types including text
+    private parser = createStreamingParser<SystemOutput>({ intentKey: ['text', 'ui_render', 'sys_cmd'] });
 
     // active interaction state
     private currentMessageIndex = -1;
@@ -18,52 +18,43 @@ export class ChatStore {
     }
 
     private setupParser() {
-        // Listen for PARTIAL updates (The GenUI Magic - fires during streaming)
+        // Listen for PARTIAL updates - Realtime (no debounce)
         this.parser.onIntentPartial((type, payload) => {
             if (this.currentMessageIndex === -1) return;
 
             const msg = this.messages[this.currentMessageIndex];
-            console.log("[ChatStore] onIntentPartial:", type, payload);
 
-            if (type === 'ui_render') {
+            // Handle text intent
+            if (type === 'text') {
+                const textPayload = payload as any;
+                if (textPayload.content) {
+                    msg.content = textPayload.content;
+                }
+            }
+            // Handle UI render intent
+            else if (type === 'ui_render') {
                 const uiPayload = payload as any;
                 if (!uiPayload.component) return;
 
-                // Force reactivity by replacing the array
-                msg.components = [{
-                    component: uiPayload.component,
-                    props: uiPayload.props || {},
-                    children: []
-                }];
-            } else if (type === 'sys_cmd') {
-                const toolPayload = payload as any;
-                if (!toolPayload.type) return;
+                if (!msg.components) msg.components = [];
 
-                if (toolPayload.type === 'deploy') {
-                    msg.components = [{
-                        component: 'DeployStream',
-                        props: {
-                            steps: [
-                                { id: 1, msg: `Deploying to ${toolPayload.args?.env || 'unknown'}...`, status: 'running' },
-                                { id: 2, msg: 'Building container...', status: 'pending' },
-                                { id: 3, msg: 'Pushing to registry...', status: 'pending' }
-                            ]
-                        },
-                        children: []
-                    }];
-                } else if (toolPayload.type === 'rollback') {
-                    msg.components = [{
-                        component: 'DeployStream',
-                        props: {
-                            steps: [
-                                { id: 1, msg: `Rolling back to ${toolPayload.args?.version || 'unknown'}...`, status: 'running' }
-                            ]
-                        },
-                        children: []
-                    }];
+                const existingIdx = msg.components.findIndex((c: any) => c.component === uiPayload.component);
+
+                if (existingIdx >= 0) {
+                    // Update existing component props
+                    msg.components[existingIdx].props = uiPayload.props || {};
                 } else {
-                    msg.content = `Executing: ${toolPayload.type}`;
+                    // Add new component
+                    msg.components.push({
+                        component: uiPayload.component,
+                        props: uiPayload.props || {},
+                        children: []
+                    });
                 }
+            }
+            // Handle sys_cmd intent (just log, don't interfere with UI)
+            else if (type === 'sys_cmd') {
+                console.log('[ChatStore] System Command:', payload);
             }
         });
     }
@@ -77,12 +68,8 @@ export class ChatStore {
         this.currentMessageIndex = this.messages.length - 1;
         this.isStreaming = true;
 
-        // 3. Reset Parser
+        // 3. Reset Parser (no need to recreate, just reset state)
         this.parser.reset();
-
-        // 4. Re-init parser to be safe
-        this.parser = createStreamingParser<SystemOutput>({ intentKey: ['ui_render', 'sys_cmd'] });
-        this.setupParser();
 
         // 5. Call Real API
         await this.streamResponse(text);

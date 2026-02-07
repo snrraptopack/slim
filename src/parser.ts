@@ -81,10 +81,14 @@ export class Parser {
 
     /** Reset parser state */
     reset(): void {
+        // Preserve listeners across resets
+        const listeners = this.state.listeners;
+
         this.tokenizer.reset();
         this.tokens = [];
         this.pos = 0;
         this.state = this.createInitialState();
+        this.state.listeners = listeners;  // Restore listeners
     }
 
     /** Subscribe to parser events */
@@ -104,6 +108,8 @@ export class Parser {
     private emit(type: ParserEventType, data: unknown, position: Position): void {
         const event: ParserEvent = { type, data, position };
 
+        console.log('[Parser.emit]', type, 'listeners:', this.state.listeners.get(type)?.size || 0);
+
         // Call registered listeners
         this.state.listeners.get(type)?.forEach(handler => handler(data));
 
@@ -113,7 +119,17 @@ export class Parser {
 
     /** Write a chunk of input (streaming) */
     write(chunk: string): void {
+        console.log('[Parser.write] INCREMENTAL PARSE - chunk length:', chunk.length);
         this.tokenizer.write(chunk);
+
+        // Parse any new tokens that are available
+        let token: Token | null;
+        while ((token = this.tokenizer.next()) !== null) {
+            this.tokens.push(token);
+        }
+
+        // Parse the accumulated tokens (without ending)
+        this.parseTokens(false);
     }
 
     /** Parse without ending (peek at current state) */

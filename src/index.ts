@@ -81,25 +81,38 @@ export function createStreamingParser<TDoc = unknown, TIntent = InferDiscriminat
     const specificHandlers = new Map<string, (payload: any) => void>();
     // END: Custom Intent Maps
 
-    // Track active intent state for partial updates
-    let activeIntentNode: any = null;
-    let activeIntentType: TIntent | null = null;
-    let activeIntentKey: string | null = null; // New: Track which key matched (e.g. 'sys_cmd')
+    // Track active intent state for partial updates (now supports multiple)
+    let activeIntents = new Map<string, { node: any, type: TIntent }>();
 
-    // Helper to emit partial update
-    const emitPartial = () => {
-        if (activeIntentType && activeIntentNode && partialHandler && activeIntentKey) {
+    // Debounce state
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let debounceMs = 0;
+
+    // Helper to emit partial updates for all active intents
+    const emitPartials = () => {
+        if (!partialHandler) return;
+
+        console.log('[StreamParser] emitPartials called, activeIntents:', activeIntents.size);
+
+        for (const [key, intent] of activeIntents) {
             try {
-                // Build partial object from current AST state
-                const buildResult = irBuilder.build(activeIntentNode);
-
-                // Use the value directly (don't wrap in key) to match InferPayload
+                const buildResult = irBuilder.build(intent.node);
                 const payload = buildResult.value as unknown as TPayload;
-
-                partialHandler(activeIntentType, payload);
+                console.log('[StreamParser] Emitting partial for:', intent.type, payload);
+                partialHandler(intent.type, payload);
             } catch (e) {
                 // Ignore build errors during partial construction
             }
+        }
+    };
+
+    // Debounced version
+    const emitPartialsDebounced = () => {
+        if (debounceMs > 0) {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(emitPartials, debounceMs);
+        } else {
+            emitPartials();
         }
     };
 
@@ -131,43 +144,35 @@ export function createStreamingParser<TDoc = unknown, TIntent = InferDiscriminat
             specific(payload);
         }
 
-        // clear active state
-        activeIntentNode = null;
-        activeIntentType = null;
-        activeIntentKey = null; // Clear the active intent key
+        // clear active state for this intent
+        activeIntents.delete(key);
     });
 
-    // 2. Listen for granular updates to trigger partial rebuilds (Brute Force Strategy)
+    // 2. Listen for granular updates to trigger partial rebuilds (Multi-Intent Support)
     const checkForActiveIntent = () => {
-        // Access internal parser state (cast to any for internal access)
         const p = parser as any;
         const stack = p.state.stack;
 
-        // Root frame
         const root = stack[0];
         if (!root || root.node.kind !== 'mapping') return;
 
-        // Check if we have an intent key in the root entries
-        // We use the same 'intentKey' logic as the parser
         const intentKeys = Array.isArray(p.intentKeys) ? p.intentKeys : [p.intentKeys];
-
-        // Find the entry that matches our intent key
-        // We look directly at the AST node's entries
         const entries = (root.node as MappingNode).entries;
-        const intentEntry = entries.find(e => intentKeys.includes(e.key));
 
-        if (intentEntry) {
-            // Found an intent!
-            activeIntentNode = intentEntry.value;
-            activeIntentKey = intentEntry.key; // Store the key name!
+        // Find ALL entries that match our intent keys (multi-intent support)
+        const intentEntries = entries.filter(e => intentKeys.includes(e.key));
 
-            // Use the key itself (e.g. 'sys_cmd') as the type
-            activeIntentType = activeIntentKey as unknown as TIntent;
+        console.log('[StreamParser] checkForActiveIntent found:', intentEntries.length, 'intents');
 
-            // If we have a type, emit partial!
-            if (activeIntentType) {
-                emitPartial();
-            }
+        // Update active intents map
+        for (const entry of intentEntries) {
+            const intentType = entry.key as unknown as TIntent;
+            activeIntents.set(entry.key, { node: entry.value, type: intentType });
+        }
+
+        // Emit partials for all active intents
+        if (activeIntents.size > 0) {
+            emitPartialsDebounced();
         }
     };
 
@@ -199,8 +204,11 @@ export function createStreamingParser<TDoc = unknown, TIntent = InferDiscriminat
             specificHandlers.set(intent as string, handler as any);
         },
 
-        onIntentPartial(handler: (intentType: TIntent, payload: TPayload) => void): void {
+        onIntentPartial(handler: (intentType: TIntent, payload: TPayload) => void, options?: { debounceMs?: number }): void {
             partialHandler = handler;
+            if (options?.debounceMs) {
+                debounceMs = options.debounceMs;
+            }
         },
 
         on(event: string, handler: (...args: any[]) => void): void {
@@ -219,6 +227,7 @@ export function createStreamingParser<TDoc = unknown, TIntent = InferDiscriminat
 
         reset(): void {
             parser.reset();
+            activeIntents.clear();
         }
     };
 }

@@ -10,11 +10,20 @@
         status: "pending" | "running" | "done" | "error";
     }
 
-    let { steps = [] }: { steps: Step[] } = $props();
+    let { steps: stepsRaw = [] }: { steps: Step[] } = $props();
+
+    // Use $state as requested for explicit reactivity
+    let steps = $state<Step[]>([]);
+
+    $effect(() => {
+        // Sync state with props
+        steps = stepsRaw;
+        console.log("[DeployStream] Steps sync:", steps.length);
+    });
 </script>
 
 <div
-    class="flex flex-col gap-1 p-4 bg-black border border-zinc-800 rounded-lg font-mono text-sm max-h-[300px] overflow-y-auto custom-scrollbar shadow-inner"
+    class="flex flex-col gap-1 p-4 bg-black border border-zinc-800 rounded-lg font-mono text-sm text-zinc-200 max-h-[300px] overflow-y-auto custom-scrollbar shadow-inner"
 >
     {#each steps as step}
         <div
