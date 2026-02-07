@@ -56,89 +56,30 @@ export { IRBuilder, buildIR } from './ir-builder';
 
 import { Parser } from './parser';
 import { IRBuilder } from './ir-builder';
-import type { ParserOptions, IRValue, IRResult, ParseResult, StreamingParser, MappingNode } from './types';
-
-/**
- * Parse YAML-Lite string and convert to JSON-compatible value.
- * 
- * @example
- * ```typescript
- * const json = parseToJSON(`
- * intent:
- *   type: tool_call
- *   name: search
- *   args:
- *     query: hello
- * `);
- * // { intent: { type: 'tool_call', name: 'search', args: { query: 'hello' } } }
- * ```
- */
-export function parseToJSON(input: string, options?: ParserOptions): IRValue {
-    const parser = new Parser(options);
-    parser.write(input);
-    const result = parser.end();
-
-    const irBuilder = new IRBuilder();
-    const ir = irBuilder.build(result.ast);
-
-    return ir.value;
-}
-
-/**
- * Parse YAML-Lite with full result including AST, IR, and diagnostics.
- * 
- * @example
- * ```typescript
- * const result = parseWithDiagnostics(input);
- * if (result.ir.unresolvedRefs.length > 0) {
- *   console.warn('Unresolved refs:', result.ir.unresolvedRefs);
- * }
- * ```
- */
-export function parseWithDiagnostics(
-    input: string,
-    options?: ParserOptions
-): {
-    parse: ParseResult;
-    ir: IRResult;
-} {
-    const parser = new Parser(options);
-    parser.write(input);
-    const parseResult = parser.end();
-
-    const irBuilder = new IRBuilder();
-    const irResult = irBuilder.build(parseResult.ast);
-
-    return {
-        parse: parseResult,
-        ir: irResult,
-    };
-}
+import type { ParserOptions, IRValue, IRResult, ParseResult, StreamingParser, MappingNode, InferDiscriminator, InferPayload } from './types';
 
 /**
  * Create a streaming parser with JSON output.
  * 
  * @example
  * ```typescript
- * type MyIntent = 'tool_call' | 'final_answer';
- * type MyDoc = { intent: { type: MyIntent } };
- * 
- * const stream = createStreamingParser<MyIntent, MyDoc>();
- * stream.onIntentReady((type) => {
- *   // type is typed as 'tool_call' | 'final_answer'
+ * // Automatic inference!
+ * const stream = createStreamingParser<MyDoc>();
+ * stream.onIntentReady((type, payload) => {
+ *   // type is inferred
+ *   // payload is inferred
  * });
- * 
- * stream.write('intent:\n');
- * stream.write('  type: tool_call\n');
- * 
- * const result = stream.end(); // Typed as MyDoc
  * ```
  */
-export function createStreamingParser<TIntent = string, TDoc = unknown>(options?: ParserOptions): StreamingParser<TIntent, TDoc> {
+export function createStreamingParser<TDoc = unknown, TIntent = InferDiscriminator<TDoc>, TPayload = InferPayload<TDoc>>(options?: ParserOptions): StreamingParser<TIntent, TDoc, TPayload> {
     const parser = new Parser(options);
     const irBuilder = new IRBuilder();
-    let intentHandler: ((type: TIntent, payload: Record<string, any>) => void) | null = null;
-    let partialHandler: ((type: TIntent, payload: Record<string, any>) => void) | null = null;
+    let intentHandler: ((type: TIntent, payload: TPayload) => void) | null = null;
+    let partialHandler: ((type: TIntent, payload: TPayload) => void) | null = null;
+
+    // START: Custom Intent Maps
+    const specificHandlers = new Map<string, (payload: any) => void>();
+    // END: Custom Intent Maps
 
     // Track active intent state for partial updates
     let activeIntentNode: any = null;
@@ -152,11 +93,8 @@ export function createStreamingParser<TIntent = string, TDoc = unknown>(options?
                 // Build partial object from current AST state
                 const buildResult = irBuilder.build(activeIntentNode);
 
-                // Wrap in the intent key to match full document structure
-                // Use the ACTUAL key that matched (e.g. 'sys_cmd')
-                const payload = {
-                    [activeIntentKey]: buildResult.value
-                } as Record<string, any>;
+                // Use the value directly (don't wrap in key) to match InferPayload
+                const payload = buildResult.value as unknown as TPayload;
 
                 partialHandler(activeIntentType, payload);
             } catch (e) {
@@ -167,30 +105,30 @@ export function createStreamingParser<TIntent = string, TDoc = unknown>(options?
 
     // 1. Listen for START of an intent
     parser.on('intent_ready', (data: unknown) => {
-        // This event actually fires when the INTENT MAPPING is detected, 
-        // but before it's fully populated if it's large.
-        // Wait, 'intent_ready' in current parser fires at the END.
-        // We need to detect the START. 
-        // Currently Parser doesn't have 'intent_start'.
-        // BUT, we can hook into 'key' events or use the 'activeIntentNode' from types if we added it.
-
-        // Strategy: We'll rely on the parser to tell us when an intent *might* be starting
-        // For now, let's use the standard flow.
+        // ... (existing comments) ...
 
         const { type, node } = data as { type: TIntent, node: any };
 
-        let payload: Record<string, any> = {};
+        let payload: TPayload = {} as TPayload;
         if (node) {
             try {
                 const buildResult = irBuilder.build(node);
-                payload = buildResult.value as Record<string, any>;
+                payload = buildResult.value as unknown as TPayload;
             } catch (e) {
                 // Ignore errors
             }
         }
 
+        // Global Handler
         if (intentHandler && type) {
             intentHandler(type, payload);
+        }
+
+        // Specific Handler (using 'type' which is 'intentKey')
+        const key = type as unknown as string;
+        const specific = specificHandlers.get(key);
+        if (specific) {
+            specific(payload);
         }
 
         // clear active state
@@ -223,20 +161,8 @@ export function createStreamingParser<TIntent = string, TDoc = unknown>(options?
             activeIntentNode = intentEntry.value;
             activeIntentKey = intentEntry.key; // Store the key name!
 
-            // Try to find the 'type' field inside it to know WHAT intent it is
-            if (activeIntentNode.kind === 'mapping') {
-                const typeEntry = activeIntentNode.entries.find((e: any) => e.key === 'type');
-                if (typeEntry && typeEntry.value.kind === 'scalar') {
-                    activeIntentType = typeEntry.value.value;
-                } else {
-                    // Fallback: If no type field, use the key itself as the type?
-                    activeIntentType = activeIntentKey as unknown as TIntent;
-                }
-            } else if (activeIntentNode.kind === 'sequence') {
-                // If the intent is a list, we might be inside one of the items
-                // Use the key itself (e.g. 'sys_cmd') as the type for the batch
-                activeIntentType = activeIntentKey as unknown as TIntent;
-            }
+            // Use the key itself (e.g. 'sys_cmd') as the type
+            activeIntentType = activeIntentKey as unknown as TIntent;
 
             // If we have a type, emit partial!
             if (activeIntentType) {
@@ -264,11 +190,16 @@ export function createStreamingParser<TIntent = string, TDoc = unknown>(options?
             return irBuilder.build(result.ast).value as TDoc;
         },
 
-        onIntentReady(handler: (intentType: TIntent, payload: Record<string, any>) => void): void {
+        onIntentReady(handler: (intentType: TIntent, payload: TPayload) => void): void {
             intentHandler = handler;
         },
 
-        onIntentPartial(handler: (intentType: TIntent, payload: Record<string, any>) => void): void {
+        onIntent<K extends keyof TDoc>(intent: K, handler: (payload: NonNullable<TDoc[K]>) => void): void {
+            // We cast the handler to loose type for storage
+            specificHandlers.set(intent as string, handler as any);
+        },
+
+        onIntentPartial(handler: (intentType: TIntent, payload: TPayload) => void): void {
             partialHandler = handler;
         },
 

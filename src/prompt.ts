@@ -51,15 +51,32 @@ export type InferPromptDoc<P extends PromptDef> = {
 } & (P['output'] extends Record<string, any> ? P['output'] : {});
 
 type InferIntent<I extends IntentDef> =
-    I extends { kind: 'tools', value: readonly ToolDef[] } ? {
-        type: I['value'][number]['name'];
-        args: Record<string, any>; // Hard to infer exact args from string definitons without Zod
-    } :
-    I extends { kind: 'components', value: readonly ComponentDef[] } ? {
-        component: I['value'][number]['name'];
-        props: Record<string, any>;
-    } :
+    I extends { kind: 'tools', value: infer V extends readonly ToolDef[] } ? ToolToIntent<V[number]> :
+    I extends { kind: 'components', value: infer V extends readonly ComponentDef[] } ? ComponentToIntent<V[number]> :
     I extends { kind: 'schema', value: infer S } ? S : never;
+
+type ToolToIntent<T> = T extends ToolDef ? {
+    type: T['name'];
+    args: { [K in keyof T['args']]: ParseArgType<T['args'][K]> };
+} : never;
+
+type ComponentToIntent<C> = C extends ComponentDef ? {
+    component: C['name'];
+    props: { [K in keyof C['props']]: ParseArgType<C['props'][K]> };
+} : never;
+
+type ParseArgType<T> =
+    T extends 'string' ? string :
+    T extends 'number' ? number :
+    T extends 'boolean' ? boolean :
+    T extends 'object' ? Record<string, any> :
+    T extends string ? ParseUnion<T> :
+    any;
+
+type ParseUnion<T extends string> =
+    T extends `${infer L}|${infer R}` ? Trim<L> | ParseUnion<R> : Trim<T>;
+
+type Trim<T extends string> = T extends ` ${infer Rest}` ? Trim<Rest> : T extends `${infer Rest} ` ? Trim<Rest> : T;
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -177,7 +194,7 @@ export function compilePrompt(def: PromptDef, vars: Record<string, any> = {}): s
     toolIntents.forEach(t => {
         const toolNames = t.tools.map(x => x.name).join(' | ');
         protocol += `\n\n# Option: System Command (Tools Only)\n`;
-        protocol += `${t.key}:\n  - type: ${toolNames}\n    args: { ...matches signature... }`;
+        protocol += `${t.key}:\n  type: ${toolNames}\n  args: { ...matches signature... }`;
     });
 
     // Option 2: Components

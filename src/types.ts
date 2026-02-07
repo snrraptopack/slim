@@ -240,8 +240,13 @@ export interface IntentSchema {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Streaming parser instance */
+// Helper types for type inference
+export type InferPayload<S> = NonNullable<S[keyof S]>;
+
+export type InferDiscriminator<S> = keyof S;
+
 /** Streaming parser instance */
-export interface StreamingParser<TIntent = string, TDoc = unknown> {
+export interface StreamingParser<TIntent = string, TDoc = unknown, TPayload = Record<string, any>> {
     /** Write a chunk of input */
     write(chunk: string): void;
 
@@ -255,16 +260,18 @@ export interface StreamingParser<TIntent = string, TDoc = unknown> {
     reset(): void;
 
     /** Subscribe to parser events */
-    /** Subscribe to parser events */
-    on(event: 'intent_ready', handler: (intentType: TIntent, payload: Record<string, any>) => void): void;
+    on(event: 'intent_ready', handler: (intentType: TIntent, payload: TPayload) => void): void;
     on(event: ParserEventType, handler: (data: any) => void): void;
 
     /** Unsubscribe from parser events */
     off(event: ParserEventType, handler: (data: any) => void): void;
 
     // Helper specific to intent
-    onIntentReady(handler: (intentType: TIntent, payload: Record<string, any>) => void): void;
+    onIntentReady(handler: (intentType: TIntent, payload: TPayload) => void): void;
+
+    /** Type-safe handler for specific intents */
+    onIntent<K extends keyof TDoc>(intent: K, handler: (payload: NonNullable<TDoc[K]>) => void): void;
 
     /** Subscribe to partial intent updates (for GenUI) */
-    onIntentPartial(handler: (intentType: TIntent, payload: Record<string, any>) => void): void;
+    onIntentPartial(handler: (intentType: TIntent, payload: TPayload) => void): void;
 }

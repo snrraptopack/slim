@@ -9,7 +9,7 @@ const groq = new Groq({ apiKey: key });
 const MODELS = [
     "llama-3.3-70b-versatile",
     "openai/gpt-oss-20b",
-    "qwen/qwen-2.5-32b" // Corrected model name
+    "qwen/qwen3-32b"
 ];
 
 
@@ -22,13 +22,7 @@ async function main() {
     // 2. Infer types directly from the Prompt Def
     type SystemOutput = InferPromptDoc<typeof agentPrompt>;
 
-    // We can also extract specific intent types if we want strict checking
-    type SysCmdIntent = NonNullable<SystemOutput['sys_cmd']>;
-    type UiRenderIntent = NonNullable<SystemOutput['ui_render']>;
-
-    type Intent = SysCmdIntent["type"] | UiRenderIntent["component"]
-
-    const parser = createStreamingParser<Intent, SystemOutput>({
+    const parser = createStreamingParser<SystemOutput>({
         intentKey: ['sys_cmd', 'ui_render'] // Listen for both!
     });
 
@@ -37,7 +31,7 @@ async function main() {
             { role: "system", content: SYSTEM_PROMPT },
             {
                 role: "user",
-                content: "Find high database latency and create a critical alert for it."
+                content: "show me any weather deatails use any deatails you want"
             }
         ],
         model: MODELS[0],
@@ -50,23 +44,35 @@ async function main() {
     // Handler receives the specific 'payload' object
     parser.onIntentPartial((type, payload) => {
         console.log(`\nPartial update [${type}]:`, JSON.stringify(payload));
+
+        if (type === "sys_cmd") {
+
+        }
     });
 
-    // parser.onIntentReady((type, payload) => {
-    //     console.log(`\n\nPOLYMORPHIC INTENT DETECTED: [${type}]`);
+    // parser.onIntentReady is replaced by strictly typed handlers:
 
-    //     // TypeScript doesn't know the exact shape here without casting, 
-    //     // but at runtime 'payload' is the specific object for that intent.
-    //     console.log("   Payload Shape:", JSON.stringify(payload, null, 2));
+    // 1. Handle Tools (sys_cmd)
+    parser.onIntent('sys_cmd', (cmd) => {
+        // 'cmd' is strictly typed as the Union of Tools
+        if (cmd.type === 'search') {
+            console.log(`   (>> ElasticSearch Query: "${cmd.args.query}" limit=${cmd.args.limit})`);
+        }
+        else if (cmd.type === 'create_alert') {
+            console.log(`   (>> Triggering PagerDuty: ${cmd.args.severity} alert)`);
+        }
+    });
 
-    //     if (type === 'create_alert') {
-    //         const alert = payload as AlertIntent; // Safe cast if we trust the parser
-    //         console.log(`   (>> Triggering PagerDuty: ${alert.severity?.toUpperCase()} alert from ${alert.details?.source})`);
-    //     } else if (type === 'search') {
-    //         const search = payload as SearchIntent;
-    //         console.log(`   (>> ElasticSearch Query: "${search.query}" limit=${search.limit})`);
-    //     }
-    // });
+    // 2. Handle Components (ui_render)
+    parser.onIntent('ui_render', (ui) => {
+        // 'ui' is strictly typed as the Union of Components
+        if (ui.component === 'StockCard') {
+            console.log(`   (>> StockCard: ${ui.props.symbol} ${ui.props.period})`);
+        }
+        else if (ui.component === 'WeatherWidget') {
+            console.log(`   (>> Weather: ${ui.props.city})`);
+        }
+    });
 
     try {
         for await (const chunk of stream) {
