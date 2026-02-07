@@ -47,10 +47,25 @@ The IR Builder takes the AST and translates it into a standard JavaScript object
 The `StreamingParser` instance is your primary interface. Here is a detailed look at every method.
 
 ### `write(chunk: string): void`
-This is the entry point for data. 
+This is the entry point for data.
 *   **Chunks**: You can pass strings of any length (from 1 character to 1MB).
 *   **Execution**: It runs the Tokenizer and Parser loops synchronously. By the time `write()` returns, all events relevant to that chunk have already fired.
 *   **Event Precedence**: Because execution is synchronous, you **must** call `.on()` or `.onIntent()` **before** your first `write()`.
+
+> [!IMPORTANT]
+> **Synchronous Execution Trap**
+>
+> Unlike Node.js streams which buffer events, this parser fires events immediately. If you write data before subscribing, the events are lost forever.
+
+```typescript
+// ❌ WRONG: Writing before listening
+parser.write("intent: search"); // Event fires and vanishes!
+parser.onIntent('sys_cmd', ...); // Too late.
+
+// ✅ CORRECT: Subscribe first
+parser.onIntent('sys_cmd', ...); // Ready and waiting
+parser.write("intent: search"); // Caught!
+```
 
 ### `peek(): TDoc`
 The most powerful tool in the toolkit.
