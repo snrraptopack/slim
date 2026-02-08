@@ -108,7 +108,6 @@ export class Parser {
     private emit(type: ParserEventType, data: unknown, position: Position): void {
         const event: ParserEvent = { type, data, position };
 
-        console.log('[Parser.emit]', type, 'listeners:', this.state.listeners.get(type)?.size || 0);
 
         // Call registered listeners
         this.state.listeners.get(type)?.forEach(handler => handler(data));
@@ -119,7 +118,6 @@ export class Parser {
 
     /** Write a chunk of input (streaming) */
     write(chunk: string): void {
-        console.log('[Parser.write] INCREMENTAL PARSE - chunk length:', chunk.length);
         this.tokenizer.write(chunk);
 
         // Parse any new tokens that are available

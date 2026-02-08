@@ -6,11 +6,11 @@ export const agentPrompt = definePrompt({
         You manage deployments, monitor health, and toggle feature flags using a high-tech dashboard interface. 
         When taking actions, you should explain what you're doing using the 'text' intent alongside other intents. 
         please output a valid yaml
-        when producing intent make sure all the intent has a value or required fields dont add intent with no valid data`,
+        when producing intent make sure all the intent has a value or required fields dont add intent with no valid data                `,
 
     intents: {
         // Conversational text output
-        text: schema({ content: "string" }, "Use this to explain your actions to the user"),
+        text: schema({ content: "string" }, "Use this to explain your actions to the user or respond to the user"),
 
         // Backend Tools (Simulation)
         sys_cmd: tools([
@@ -24,21 +24,21 @@ export const agentPrompt = definePrompt({
                 name: "StatusPanel",
                 description: "Show a grid of system metrics. Use for 'health', 'status', 'monitoring'.",
                 props: {
-                    metrics: "array of {name: string, value: string, trend: 'up'|'down'|'neutral'}. Example: [{name: 'CPU', value: '50%', trend: 'up'}, {name: 'Memory', value: '70%', trend: 'neutral'}]"
+                    metrics: "array of {name: string, value: string, trend: 'up'|'down'|'neutral'} "
                 }
             },
             {
                 name: "DeployStream",
                 description: "Show a scrolling log of a process. Use for long-running tasks.",
                 props: {
-                    steps: "array of {id: number, msg: string, status: 'pending'|'running'|'success'|'fail'}. Example: [{id: 1, msg: 'Building...', status: 'running'}]"
+                    steps: "array of {id: number, msg: string, status: 'pending'|'running'|'success'|'fail'}"
                 }
             },
             {
                 name: "FeatureMatrix",
                 description: "Show a list of toggles for feature flags.",
                 props: {
-                    toggles: "array of {key: string, label: string, enabled: boolean}. Example: [{key: 'dark_mode', label: 'Dark Mode', enabled: true}]"
+                    toggles: "array of {key: string, label: string, enabled: boolean}"
                 }
             }
         ], "Render rich UI dashboards for the user.")

@@ -92,13 +92,11 @@ export function createStreamingParser<TDoc = unknown, TIntent = InferDiscriminat
     const emitPartials = () => {
         if (!partialHandler) return;
 
-        console.log('[StreamParser] emitPartials called, activeIntents:', activeIntents.size);
 
         for (const [key, intent] of activeIntents) {
             try {
                 const buildResult = irBuilder.build(intent.node);
                 const payload = buildResult.value as unknown as TPayload;
-                console.log('[StreamParser] Emitting partial for:', intent.type, payload);
                 partialHandler(intent.type, payload);
             } catch (e) {
                 // Ignore build errors during partial construction
@@ -162,7 +160,6 @@ export function createStreamingParser<TDoc = unknown, TIntent = InferDiscriminat
         // Find ALL entries that match our intent keys (multi-intent support)
         const intentEntries = entries.filter(e => intentKeys.includes(e.key));
 
-        console.log('[StreamParser] checkForActiveIntent found:', intentEntries.length, 'intents');
 
         // Update active intents map
         for (const entry of intentEntries) {
@@ -230,6 +227,25 @@ export function createStreamingParser<TDoc = unknown, TIntent = InferDiscriminat
             activeIntents.clear();
         }
     };
+}
+
+/**
+ * Parse YAML-Lite input and return a plain JSON value.
+ * 
+ * This is a convenience function that combines parsing and IR building.
+ * 
+ * @example
+ * ```typescript
+ * const json = parseToJSON("name: Alice\nage: 30");
+ * // { name: "Alice", age: 30 }
+ * ```
+ */
+export function parseToJSON<T = unknown>(input: string, options?: ParserOptions): T {
+    const parser = new Parser(options);
+    parser.write(input);
+    const result = parser.end();
+    const irBuilder = new IRBuilder();
+    return irBuilder.build(result.ast).value as T;
 }
 
 /**

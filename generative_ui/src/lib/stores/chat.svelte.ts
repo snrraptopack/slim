@@ -26,6 +26,7 @@ export class ChatStore {
 
             // Handle text intent
             if (type === 'text') {
+                console.log("text", payload)
                 const textPayload = payload as any;
                 if (textPayload.content) {
                     msg.content = textPayload.content;

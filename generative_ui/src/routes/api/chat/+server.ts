@@ -11,6 +11,8 @@ const groq = new Groq({ apiKey: key });
 // Compile the prompt ONCE at module load
 const SYSTEM_PROMPT = compilePrompt(agentPrompt);
 
+console.log(SYSTEM_PROMPT)
+
 export async function POST({ request }) {
     console.log("[API /api/chat] Request received");
     try {
