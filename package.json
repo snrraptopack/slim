@@ -1,6 +1,6 @@
 {
   "name": "auwgent-yaml-lite",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Streaming YAML-Lite parser for AI agents and generative UI",
   "type": "module",
   "main": "./dist/index.js",
