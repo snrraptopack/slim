@@ -272,8 +272,18 @@ export class Tokenizer {
         };
     }
 
-    private tokenizeMultilineString(): Token {
+    private tokenizeMultilineString(): Token | null {
+        const startPos = this.state.pos;
+        const startLine = this.state.line;
         const startCol = this.state.column;
+        const startAtLineStart = this.state.atLineStart;
+        const rewind = () => {
+            this.state.pos = startPos;
+            this.state.line = startLine;
+            this.state.column = startCol;
+            this.state.atLineStart = startAtLineStart;
+        };
+
         this.advance(); // consume |
 
         // Skip to end of line
@@ -283,6 +293,10 @@ export class Tokenizer {
             if (c !== ' ') break; // Ignore trailing spaces/modifiers after |
             this.advance();
         }
+        if (this.state.pos >= this.input.length && !this.finishing) {
+            rewind();
+            return null;
+        }
 
         // Consume newline
         if (this.peekChar() === '\r') this.advance();
@@ -290,6 +304,10 @@ export class Tokenizer {
             this.advance();
             this.state.line++;
             this.state.column = 1;
+        }
+        if (this.state.pos >= this.input.length && !this.finishing) {
+            rewind();
+            return null;
         }
 
         // Determine the indent level of the multiline content
@@ -308,6 +326,7 @@ export class Tokenizer {
         const lines: string[] = [];
 
         // Read all lines that are indented at least baseIndent
+        let incomplete = false;
         while (this.state.pos < this.input.length) {
             const lineIndent = this.measureIndent();
 
@@ -329,6 +348,10 @@ export class Tokenizer {
                 lineContent += c;
                 this.advance();
             }
+            if (this.state.pos >= this.input.length && !this.finishing) {
+                incomplete = true;
+                break;
+            }
 
             lines.push(lineContent);
 
@@ -342,6 +365,10 @@ export class Tokenizer {
             } else {
                 break;
             }
+        }
+        if ((incomplete || this.state.pos >= this.input.length) && !this.finishing) {
+            rewind();
+            return null;
         }
 
         return {

@@ -50,7 +50,7 @@ export {
     createStreamingParser,
     parseToJSON,
     validate,
-    extractYAML
+    extractYAML,
 } from "./yaml"
 
 export type {
